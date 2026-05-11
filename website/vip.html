@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>House of Styles | VIP Club</title>
+    <meta
+      name="description"
+      content="Explore House of Styles VIP Club benefits, membership tiers, and discounts based on membership status."
+    />
+    <meta name="theme-color" content="#241816" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="topbar">
+        <a href="index.html" class="brand">
+          <span class="brand-mark">HT</span>
+          <span>
+            <strong>House of Styles</strong>
+            <small>VIP Fashion Atelier</small>
+          </span>
+        </a>
+
+        <nav class="main-nav">
+          <a href="index.html#shop">Shop</a>
+          <a href="vip.html">VIP Club</a>
+          <a href="index.html#custom-studio">Custom Studio</a>
+          <a href="index.html#experience">Experience</a>
+        </nav>
+
+        <div class="topbar-actions">
+          <a class="secondary-btn top-login-btn" href="index.html">Back to Store</a>
+        </div>
+      </header>
+
+      <main class="vip-page">
+        <section class="vip-hero">
+          <div class="vip-hero-copy">
+            <p class="eyebrow">VIP Club</p>
+            <h1>Exclusive Fashion Benefits</h1>
+            <p class="hero-text">
+              Join the House of Styles VIP Club to unlock specialized pricing, priority tailoring, and early access to our most anticipated collections.
+            </p>
+          </div>
+
+          <div class="vip-hero-card">
+            <span class="tag dark">Member Perks</span>
+            <h2>Elevate Your Experience</h2>
+            <p>Higher tiers unlock faster tailoring priority, deeper discounts, and exclusive stylist consultations.</p>
+          </div>
+        </section>
+
+        <section class="vip-status-section">
+          <div class="section-heading inline">
+            <div>
+              <p class="eyebrow">Membership Status</p>
+              <h2>Track Your Rewards</h2>
+            </div>
+          </div>
+
+          <div class="vip-status-layout">
+            <aside class="vip-status-panel">
+              <div class="vip-summary-card">
+                <p class="eyebrow">Signed In Account</p>
+                <h3 id="customerName">Guest User</h3>
+                <p id="customerEmail" class="hero-text">Please sign in to unlock your VIP pricing.</p>
+              </div>
+
+              <div class="vip-summary-card">
+                <p class="eyebrow">Membership Status</p>
+                <h3 id="tierName">Silver Member</h3>
+                <p id="tierDescription" class="hero-text">
+                  Entry VIP access with shopping discounts and early previews.
+                </p>
+              </div>
+
+              <div class="vip-summary-card" id="vipSigninPrompt" hidden>
+                <p class="eyebrow">Access Needed</p>
+                <h3>Customer sign-in required</h3>
+                <p class="hero-text">
+                  Please create your account or log in from the main store to view your personal VIP discounts.
+                </p>
+                <a class="primary-btn full" href="index.html">Go to Login / Sign Up</a>
+              </div>
+            </aside>
+
+            <div class="vip-benefits-panel" id="vipBenefitsPanel">
+              <div class="vip-discount-grid">
+                <article class="vip-discount-card">
+                  <p class="eyebrow">Formal Wear</p>
+                  <strong id="formalDiscount">10% OFF</strong>
+                </article>
+                <article class="vip-discount-card">
+                  <p class="eyebrow">Wedding Wear</p>
+                  <strong id="weddingDiscount">12% OFF</strong>
+                </article>
+                <article class="vip-discount-card">
+                  <p class="eyebrow">Party Wear</p>
+                  <strong id="partyDiscount">8% OFF</strong>
+                </article>
+                <article class="vip-discount-card">
+                  <p class="eyebrow">Casual Wear</p>
+                  <strong id="casualDiscount">6% OFF</strong>
+                </article>
+              </div>
+
+              <div class="vip-extra-grid">
+                <article class="process-card">
+                  <span class="step">01</span>
+                  <h3 id="extraBenefitOneTitle">Early Access</h3>
+                  <p id="extraBenefitOneText">Preview select drops before public launch windows.</p>
+                </article>
+                <article class="process-card">
+                  <span class="step">02</span>
+                  <h3 id="extraBenefitTwoTitle">Tailoring Priority</h3>
+                  <p id="extraBenefitTwoText">Move faster in the custom stitching queue.</p>
+                </article>
+                <article class="process-card">
+                  <span class="step">03</span>
+                  <h3 id="extraBenefitThreeTitle">Member Styling</h3>
+                  <p id="extraBenefitThreeText">Get styling support based on your tier level.</p>
+                </article>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="vip-tiers-section">
+          <div class="section-heading inline">
+            <div>
+              <p class="eyebrow">Membership Plans</p>
+              <h2>Choose the best VIP tier</h2>
+            </div>
+          </div>
+          <div class="tier-grid" id="membershipTiersContainer"></div>
+        </section>
+      </main>
+    </div>
+
+    <!-- Payment Modal -->
+    <div class="modal-overlay" id="paymentModal" hidden>
+      <div class="modal-card">
+        <div class="drawer-header">
+          <div>
+            <p class="eyebrow">Checkout</p>
+            <h2>Select Payment Method</h2>
+          </div>
+          <button class="icon-btn" id="closePaymentModal">X</button>
+        </div>
+        <div class="modal-body">
+          <div class="payment-options">
+            <button class="payment-method-btn" id="stripePaymentBtn">
+              <span class="payment-icon">💳</span>
+              <span class="payment-label">Stripe (Card/Apple Pay)</span>
+            </button>
+            <button class="payment-method-btn" id="upiPaymentBtn">
+              <span class="payment-icon">📱</span>
+              <span class="payment-label">UPI (GPay/PhonePe)</span>
+            </button>
+          </div>
+
+          <div id="stripePaymentForm" hidden>
+            <div id="payment-element">
+              <!-- Stripe.js injects the Payment Element here -->
+            </div>
+            <button class="primary-btn full mt-2" id="submitStripePayment">Pay Now</button>
+            <div id="payment-message" hidden></div>
+          </div>
+
+          <div id="upiPaymentForm" hidden>
+            <label>
+              UPI ID
+              <input type="text" id="upiIdInput" placeholder="username@upi" required />
+            </label>
+            <button class="primary-btn full mt-2" id="submitUPIPayment">Initiate UPI Payment</button>
+            <p class="form-note">A request will be sent to your UPI app.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Backend Integration -->
+    <script src="https://js.stripe.com/v3/"></script>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script src="api-client.js"></script>
+    <script src="notifications.js"></script>
+    <script src="vip-integration.js"></script>
+  </body>
+</html>

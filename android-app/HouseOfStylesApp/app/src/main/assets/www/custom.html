@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>House of Styles | Custom Studio</title>
+    <meta
+      name="description"
+      content="Choose custom garment, occasion, fit, and budget options in the House of Styles Custom Studio."
+    />
+    <meta name="theme-color" content="#241816" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="topbar">
+        <a href="index.html" class="brand">
+          <span class="brand-mark">HT</span>
+          <span>
+            <strong>House of Styles</strong>
+            <small>VIP Fashion Atelier</small>
+          </span>
+        </a>
+
+        <nav class="main-nav">
+          <a href="index.html#shop">Shop</a>
+          <a href="vip.html">VIP Club</a>
+          <a href="custom.html">Custom Studio</a>
+          <a href="index.html#experience">Experience</a>
+        </nav>
+
+        <div class="topbar-actions">
+          <a class="secondary-btn top-login-btn" href="index.html">Back to Store</a>
+        </div>
+      </header>
+
+      <main class="vip-page">
+        <section class="vip-hero">
+          <div class="vip-hero-copy">
+            <p class="eyebrow">Custom Studio</p>
+            <h1>Tailored to Your Vision</h1>
+            <p class="hero-text">
+              Collaborate with our master tailors to create garments that are uniquely yours. From fabric selection to the final stitch, your style leads the way.
+            </p>
+          </div>
+
+          <div class="vip-hero-card">
+            <span class="tag dark">Made For You</span>
+            <h2>Bespoke Artistry</h2>
+            <p>Experience the luxury of garments crafted specifically for your silhouette and occasion.</p>
+          </div>
+        </section>
+
+        <section class="custom-section">
+          <div class="section-heading inline">
+            <div>
+              <p class="eyebrow">Select Options</p>
+              <p class="hero-text custom-section-note">
+                Choose the foundation of your custom piece. Each selection helps our stylists understand your unique requirements.
+              </p>
+            </div>
+          </div>
+
+          <div class="custom-grid">
+            <div class="custom-form custom-picker-panel">
+              <div class="custom-picker-group">
+                <p class="filter-label">Pick a garment</p>
+                <div class="custom-visual-grid">
+                  <button class="custom-option custom-visual-card active" type="button" data-custom-group="garment" data-custom-value="Blazer" data-custom-open="true">
+                    <span class="custom-visual custom-visual-blazer"></span>
+                    <span class="custom-visual-copy">
+                      <strong>Blazer</strong>
+                      <small>Sharp, professional, and timeless</small>
+                    </span>
+                  </button>
+                  <button class="custom-option custom-visual-card" type="button" data-custom-group="garment" data-custom-value="Sherwani" data-custom-open="true">
+                    <span class="custom-visual custom-visual-sherwani"></span>
+                    <span class="custom-visual-copy">
+                      <strong>Sherwani</strong>
+                      <small>Traditional elegance for grand occasions</small>
+                    </span>
+                  </button>
+                  <button class="custom-option custom-visual-card" type="button" data-custom-group="garment" data-custom-value="Lehenga" data-custom-open="true">
+                    <span class="custom-visual custom-visual-lehenga"></span>
+                    <span class="custom-visual-copy">
+                      <strong>Lehenga</strong>
+                      <small>Intricate detailing and royal silhouettes</small>
+                    </span>
+                  </button>
+                  <button class="custom-option custom-visual-card" type="button" data-custom-group="garment" data-custom-value="Dress" data-custom-open="true">
+                    <span class="custom-visual custom-visual-dress"></span>
+                    <span class="custom-visual-copy">
+                      <strong>Dress</strong>
+                      <small>Modern draping and evening sophistication</small>
+                    </span>
+                  </button>
+                </div>
+              </div>
+
+              <div class="custom-picker-group">
+                <p class="filter-label">Choose the occasion</p>
+                <div class="custom-visual-grid">
+                  <button class="custom-option custom-visual-card active" type="button" data-custom-group="occasion" data-custom-value="Wedding" data-custom-open="true">
+                    <span class="custom-visual custom-visual-wedding"></span>
+                    <span class="custom-visual-copy">
+                      <strong>Wedding</strong>
+                      <small>Grand celebrations and ceremonies</small>
+                    </span>
+                  </button>
+                  <button class="custom-option custom-visual-card" type="button" data-custom-group="occasion" data-custom-value="Formal" data-custom-open="true">
+                    <span class="custom-visual custom-visual-formal"></span>
+                    <span class="custom-visual-copy">
+                      <strong>Formal</strong>
+                      <small>Professional events and galas</small>
+                    </span>
+                  </button>
+                  <button class="custom-option custom-visual-card" type="button" data-custom-group="occasion" data-custom-value="Party" data-custom-open="true">
+                    <span class="custom-visual custom-visual-party"></span>
+                    <span class="custom-visual-copy">
+                      <strong>Party</strong>
+                      <small>Cocktails, clubbing, and festivities</small>
+                    </span>
+                  </button>
+                  <button class="custom-option custom-visual-card" type="button" data-custom-group="occasion" data-custom-value="Casual" data-custom-open="true">
+                    <span class="custom-visual custom-visual-casual"></span>
+                    <span class="custom-visual-copy">
+                      <strong>Casual</strong>
+                      <small>Elevated everyday style</small>
+                    </span>
+                  </button>
+                </div>
+              </div>
+
+              <div class="custom-picker-group">
+                <p class="filter-label">Select your fit</p>
+                <div class="custom-option-grid">
+                  <button class="custom-option active" type="button" data-custom-group="fit" data-custom-value="Slim Fit" data-custom-open="true">Slim Fit</button>
+                  <button class="custom-option" type="button" data-custom-group="fit" data-custom-value="Classic Fit" data-custom-open="true">Classic Fit</button>
+                  <button class="custom-option" type="button" data-custom-group="fit" data-custom-value="Relaxed Fit" data-custom-open="true">Relaxed Fit</button>
+                  <button class="custom-option" type="button" data-custom-group="fit" data-custom-value="Need Guidance" data-custom-open="true">Need Guidance</button>
+                </div>
+              </div>
+
+              <div class="custom-picker-group">
+                <p class="filter-label">Pick your budget</p>
+                <div class="custom-option-grid">
+                  <button class="custom-option active" type="button" data-custom-group="budget" data-custom-value="Rs 3000 - Rs 5000" data-custom-open="true">Rs 3000 - Rs 5000</button>
+                  <button class="custom-option" type="button" data-custom-group="budget" data-custom-value="Rs 5000 - Rs 10000" data-custom-open="true">Rs 5000 - Rs 10000</button>
+                  <button class="custom-option" type="button" data-custom-group="budget" data-custom-value="Rs 10000 - Rs 25000" data-custom-open="true">Rs 10000 - Rs 25000</button>
+                  <button class="custom-option" type="button" data-custom-group="budget" data-custom-value="Rs 25000+" data-custom-open="true">Rs 25000+</button>
+                </div>
+              </div>
+
+              <button type="button" class="primary-btn full" id="saveCustomStudioButton">Save My Custom Style</button>
+              <p class="form-note" id="customMessage">Choose your options and save your custom style preferences.</p>
+            </div>
+
+            <div class="custom-aside">
+              <article class="custom-summary-card">
+                <p class="eyebrow">Your Selection</p>
+                <div class="custom-summary-list">
+                  <div><span>Garment</span><strong id="customSummaryGarment">Blazer</strong></div>
+                  <div><span>Occasion</span><strong id="customSummaryOccasion">Wedding</strong></div>
+                  <div><span>Fit</span><strong id="customSummaryFit">Slim Fit</strong></div>
+                  <div><span>Budget</span><strong id="customSummaryBudget">Rs 3000 - Rs 5000</strong></div>
+                </div>
+              </article>
+              <article class="process-card">
+                <span class="step">01</span>
+                <h3>Pick your options</h3>
+                <p>Choose the garment, occasion, fit, and budget that match your needs.</p>
+              </article>
+              <article class="process-card">
+                <span class="step">02</span>
+                <h3>Studio review</h3>
+                <p>We use your selected options to understand the kind of outfit you want us to craft.</p>
+              </article>
+              <article class="process-card">
+                <span class="step">03</span>
+                <h3>Refine and stitch</h3>
+                <p>Once your picks are saved, we can guide you into the next tailoring and delivery steps.</p>
+              </article>
+            </div>
+          </div>
+
+          <section class="custom-orders-section">
+            <div class="section-heading inline">
+              <div>
+                <p class="eyebrow">My Custom Studio</p>
+              </div>
+            </div>
+            <div id="customOrdersList" class="custom-orders-list"></div>
+          </section>
+        </section>
+      </main>
+    </div>
+
+    <!-- Payment Modal -->
+    <div class="modal-overlay" id="paymentModal" hidden>
+      <div class="modal-card">
+        <div class="drawer-header">
+          <div>
+            <p class="eyebrow">Checkout</p>
+            <h2>Select Payment Method</h2>
+          </div>
+          <button class="icon-btn" id="closePaymentModal">X</button>
+        </div>
+        <div class="modal-body">
+          <div class="payment-options">
+            <button class="payment-method-btn" id="stripePaymentBtn">
+              <span class="payment-icon">💳</span>
+              <span class="payment-label">Stripe (Card/Apple Pay)</span>
+            </button>
+            <button class="payment-method-btn" id="upiPaymentBtn">
+              <span class="payment-icon">📱</span>
+              <span class="payment-label">UPI (GPay/PhonePe)</span>
+            </button>
+          </div>
+
+          <div id="stripePaymentForm" hidden>
+            <div id="payment-element">
+              <!-- Stripe.js injects the Payment Element here -->
+            </div>
+            <button class="primary-btn full mt-2" id="submitStripePayment">Pay Now</button>
+            <div id="payment-message" hidden></div>
+          </div>
+
+          <div id="upiPaymentForm" hidden>
+            <label>
+              UPI ID
+              <input type="text" id="upiIdInput" placeholder="username@upi" required />
+            </label>
+            <button class="primary-btn full mt-2" id="submitUPIPayment">Initiate UPI Payment</button>
+            <p class="form-note">A request will be sent to your UPI app.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Backend Integration -->
+    <script src="https://js.stripe.com/v3/"></script>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script src="api-client.js"></script>
+    <script src="notifications.js"></script>
+    <script src="custom-integration.js"></script>
+  </body>
+</html>

@@ -1,0 +1,19 @@
+services:
+  # Backend Service
+  - type: web
+    name: house-of-styles-backend
+    env: node
+    plan: free
+    buildCommand: cd website/backend && npm install
+    startCommand: cd website/backend && npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MONGODB_URI
+        sync: false # You will set this in the Render Dashboard
+      - key: JWT_SECRET
+        generateValue: true
+      - key: PORT
+        value: "10000"
+      - key: CORS_ORIGIN
+        value: "*"

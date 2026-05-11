@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>House of Styles | SS Clothings Where Style Meets Quality</title>
+    <meta
+      name="description"
+      content="House of Styles is a clothing store with ready-to-shop fashion, VIP membership, and custom styling experiences."
+    />
+    <meta name="theme-color" content="#241816" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="topbar">
+        <a href="index.html" class="brand">
+          <span class="brand-mark">HS</span>
+          <span>
+            <strong>House of Styles</strong>
+            <small>SS Clothings Where Style Meets Quality</small>
+          </span>
+        </a>
+
+        <nav class="main-nav">
+          <div class="nav-dropdown">
+            <button class="nav-link-button" id="shopMenuButton" type="button" aria-expanded="false">
+              Shop
+            </button>
+            <div class="shop-dropdown-menu" id="shopDropdownMenu" hidden>
+              <button class="dropdown-item" type="button" data-category-shortcut="All">All Products</button>
+              <button class="dropdown-item" type="button" data-category-shortcut="Formal Wear">Formal Wear</button>
+              <button class="dropdown-item" type="button" data-category-shortcut="Wedding Wear">Wedding Wear</button>
+              <button class="dropdown-item" type="button" data-category-shortcut="Party Wear">Party Wear</button>
+              <button class="dropdown-item" type="button" data-category-shortcut="Casual Wear">Casual Wear</button>
+              <button class="dropdown-item" type="button" data-category-shortcut="Tailored">Tailored</button>
+            </div>
+          </div>
+          <a href="vip.html">VIP Club</a>
+          <a href="custom.html">Custom Studio</a>
+          <a href="#experience">Experience</a>
+        </nav>
+
+        <div class="topbar-actions">
+          <button class="primary-btn top-login-btn" id="openAuthModal" type="button">
+            Login / Sign Up
+          </button>
+          <button class="icon-btn" id="favoritesButton" aria-label="View favorites">
+            <span>Fav</span>
+            <em id="favoritesCount">0</em>
+          </button>
+          <button class="icon-btn cart-btn" id="cartButton" aria-label="View cart">
+            <span>Bag</span>
+            <em id="cartCount">0</em>
+          </button>
+        </div>
+      </header>
+
+      <main>
+        <section class="store-hero">
+          <div class="store-hero-copy">
+            <p class="eyebrow">New Generation Fashion Store</p>
+            <h1>SS Clothings Where Style Meets Quality.</h1>
+            <p class="hero-text">
+              A shopping-first homepage with curated collections, VIP rewards, and a custom
+              style studio built into one brand experience.
+            </p>
+            <div class="hero-actions">
+              <a href="#shop" class="primary-btn">Shop Now</a>
+              <a href="custom.html" class="secondary-btn">Explore Custom Studio</a>
+            </div>
+
+            <div class="hero-stats">
+              <article>
+                <strong>4 Collections</strong>
+                <span>Formal, wedding, party, and casual wear</span>
+              </article>
+              <article>
+                <strong>VIP Discounts</strong>
+                <span>Membership-based savings and VIP access</span>
+              </article>
+              <article>
+                <strong>Custom Picks</strong>
+                <span>Option-driven style selection for stitched looks</span>
+              </article>
+            </div>
+          </div>
+
+          <div class="store-hero-visuals">
+            <article class="hero-display-card hero-display-accent">
+              <span class="tag">VIP Club</span>
+              <h3>Membership discounts for every shopping tier</h3>
+            </article>
+            <article class="hero-display-card hero-display-accent alt">
+              <span class="tag">Custom Studio</span>
+              <h3>Choose styles through visual options</h3>
+            </article>
+          </div>
+        </section>
+
+        <section class="market-strip" aria-label="Store highlights">
+          <article class="market-pill">Free style guidance</article>
+          <article class="market-pill">Wedding edits</article>
+          <article class="market-pill">VIP early access</article>
+          <article class="market-pill">Custom stitched choices</article>
+          <article class="market-pill">Modern shopping flow</article>
+        </section>
+
+        <section class="homepage-panels" id="experience">
+          <article class="homepage-panel warm">
+            <p class="eyebrow">Formal Wear</p>
+            <h3>Sharp tailoring for office, business, and elevated daily dressing.</h3>
+            <a href="#shop" class="ghost-btn small">Shop Formal</a>
+          </article>
+          <article class="homepage-panel neutral">
+            <p class="eyebrow">Wedding Wear</p>
+            <h3>Celebration-first fashion for brides, grooms, and family events.</h3>
+            <a href="#shop" class="ghost-btn small">Shop Wedding</a>
+          </article>
+          <article class="homepage-panel rich">
+            <p class="eyebrow">Party Wear</p>
+            <h3>Evening-ready statement pieces with shine, depth, and energy.</h3>
+            <a href="#shop" class="ghost-btn small">Shop Party</a>
+          </article>
+          <article class="homepage-panel soft">
+            <p class="eyebrow">Casual Wear</p>
+            <h3>Relaxed style with cleaner comfort and better finishing.</h3>
+            <a href="#shop" class="ghost-btn small">Shop Casual</a>
+          </article>
+        </section>
+
+        <section class="feature-runway">
+          <div class="section-heading inline">
+            <div>
+              <p class="eyebrow">Storefront Focus</p>
+            </div>
+          </div>
+
+          <div class="feature-runway-grid">
+            <article class="feature-runway-card">
+              <h3>VIP Access</h3>
+              <p>Unlock exclusive membership rewards and specialized pricing through our dedicated VIP section.</p>
+            </article>
+            <article class="feature-runway-card">
+              <h3>Custom Studio</h3>
+              <p>Experience a personalized fashion journey with visual style selection and expert tailoring support.</p>
+            </article>
+          </div>
+        </section>
+
+        <section class="shop-section" id="shop">
+          <div class="section-heading inline">
+            <div>
+              <p class="eyebrow">Shop the collection</p>
+            
+            </div>
+            <div class="shop-tools">
+              <label class="search-field">
+                <span>Search</span>
+                <input id="searchInput" type="search" placeholder="Search by style, name, or mood" />
+              </label>
+              <label class="filter-field">
+                <span>Sort</span>
+                <select id="sortSelect">
+                  <option value="featured">Featured</option>
+                  <option value="price-asc">Price: Low to high</option>
+                  <option value="price-desc">Price: High to low</option>
+                </select>
+              </label>
+            </div>
+          </div>
+
+          <div class="category-strip shop-category-strip" aria-label="Shop categories">
+            <button class="pill active" data-category="All">All</button>
+            <button class="pill" data-category="Formal Wear">Formal Wear</button>
+            <button class="pill" data-category="Wedding Wear">Wedding Wear</button>
+            <button class="pill" data-category="Party Wear">Party Wear</button>
+            <button class="pill" data-category="Casual Wear">Casual Wear</button>
+            <button class="pill" data-category="Tailored">Tailored</button>
+          </div>
+
+          <div class="style-sections">
+            <article class="style-card">
+              <p class="eyebrow">Formal Wear</p>
+              <h3>Professional Polish</h3>
+            </article>
+            <article class="style-card">
+              <p class="eyebrow">Wedding Wear</p>
+              <h3>Regal Celebrations</h3>
+            </article>
+            <article class="style-card">
+              <p class="eyebrow">Party Wear</p>
+              <h3>Bold Statements</h3>
+            </article>
+            <article class="style-card">
+              <p class="eyebrow">Casual Wear</p>
+              <h3>Refined Comfort</h3>
+            </article>
+          </div>
+
+          <div class="shop-layout">
+            <aside class="filters-card">
+              <div>
+                <p class="filter-label">Price range</p>
+                <div class="range-grid">
+                  <button class="pill active price-filter" data-price="all">All</button>
+                  <button class="pill price-filter" data-price="under-2500">Under Rs 2500</button>
+                  <button class="pill price-filter" data-price="2500-5000">Rs 2500 - Rs 5000</button>
+                  <button class="pill price-filter" data-price="above-5000">Above Rs 5000</button>
+                </div>
+              </div>
+              <div>
+                <p class="filter-label">Ideal for</p>
+                <div class="range-grid">
+                  <button class="pill active audience-filter" data-audience="All">All</button>
+                  <button class="pill audience-filter" data-audience="Wedding">Wedding</button>
+                  <button class="pill audience-filter" data-audience="Festive">Festive</button>
+                  <button class="pill audience-filter" data-audience="Everyday">Everyday</button>
+                  <button class="pill audience-filter" data-audience="Party">Party</button>
+                </div>
+              </div>
+            </aside>
+
+            <div class="products-panel">
+              <div class="products-meta">
+                <p id="resultsText">Showing featured pieces</p>
+                <button class="ghost-btn small" id="clearFiltersButton">Clear filters</button>
+              </div>
+              <div class="product-grid" id="productGrid"></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="cross-links">
+          <article class="cross-link-card">
+            <p class="eyebrow">VIP Club</p>
+            <h3>Join the Elite</h3>
+            <a href="vip.html" class="primary-btn">Open VIP Page</a>
+          </article>
+          <article class="cross-link-card">
+            <p class="eyebrow">Custom Studio</p>
+            <h3>Craft Your Look</h3>
+            <a href="custom.html" class="secondary-btn">Open Custom Studio</a>
+          </article>
+        </section>
+
+        <section class="vip-section" id="vip-club">
+          <div class="vip-copy">
+            <p class="eyebrow">VIP Club Membership</p>
+            <h2>Elevate Your Fashion Status</h2>
+            <ul class="benefit-list">
+              <li>Membership-based discounts linked to signed-in customer status</li>
+              <li>Priority access to new collections and selected launches</li>
+              <li>Better custom-stitching support and faster service routes</li>
+              <li>Premium styling perks across major shopping occasions</li>
+            </ul>
+          </div>
+
+          <form class="vip-form" id="vipForm">
+            <h3>Join the Club</h3>
+            <label>
+              Full name
+              <input name="name" type="text" placeholder="Your name" required />
+            </label>
+            <label>
+              Email
+              <input name="email" type="email" placeholder="you@example.com" required />
+            </label>
+            <label>
+              Shopping focus
+              <select name="interest" required>
+                <option value="">Choose one</option>
+                <option value="Occasion wear">Occasion wear</option>
+                <option value="Workwear">Workwear</option>
+                <option value="Family styling">Family styling</option>
+                <option value="Custom tailoring">Custom tailoring</option>
+              </select>
+            </label>
+            <button type="submit" class="primary-btn full">Activate VIP Interest</button>
+            <p class="form-note" id="vipMessage">Your membership interest will be stored locally for this prototype.</p>
+          </form>
+        </section>
+      </main>
+    </div>
+
+    <aside class="cart-drawer" id="cartDrawer" aria-hidden="true">
+      <div class="drawer-header">
+        <div>
+          <p class="eyebrow">Your Cart</p>
+          <h2>Order summary</h2>
+        </div>
+        <button class="icon-btn" id="closeCartButton" aria-label="Close cart">X</button>
+      </div>
+      <div class="drawer-body" id="cartItems"></div>
+      <div class="drawer-footer">
+        <div class="total-row">
+          <span>Total</span>
+          <strong id="cartTotal">Rs 0</strong>
+        </div>
+        <button class="primary-btn full" id="checkoutButton">Proceed to Checkout</button>
+        <p class="form-note">Checkout is demo-only here. You can connect Razorpay next.</p>
+      </div>
+    </aside>
+
+    <aside class="cart-drawer favorites-drawer" id="favoritesDrawer" aria-hidden="true">
+      <div class="drawer-header">
+        <div>
+          <p class="eyebrow">Your Favorites</p>
+          <h2>Saved styles</h2>
+        </div>
+        <button class="icon-btn" id="closeFavoritesButton" aria-label="Close favorites">X</button>
+      </div>
+      <div class="drawer-body" id="favoriteItems"></div>
+      <div class="drawer-footer">
+        <div class="total-row">
+          <span>Saved</span>
+          <strong id="favoritesTotal">0 items</strong>
+        </div>
+        <button class="primary-btn full" id="browseFavoritesButton" type="button">Browse Collection</button>
+      </div>
+    </aside>
+
+    <div class="overlay" id="overlay" hidden></div>
+
+    <div class="modal-overlay" id="authModal" hidden>
+      <div class="modal-card auth-modal-card">
+        <div class="auth-layout">
+          <div class="auth-side">
+            <p class="eyebrow">Customer Access</p>
+            <h2>Style starts here.</h2>
+            <p class="auth-side-text">
+              Join House of Styles to save favorites, checkout faster, and manage custom tailoring in one place.
+            </p>
+            <div class="auth-side-points">
+              <span>Fast checkout</span>
+              <span>Wishlist sync</span>
+              <span>Tailoring updates</span>
+            </div>
+            <div class="auth-side-preview">
+              <div class="auth-preview-card">
+                <strong>VIP unlock</strong>
+                <p>Early drops, member pricing, and faster custom order support.</p>
+              </div>
+              <div class="auth-preview-card muted">
+                <strong>One account</strong>
+                <p>Shop ready-made looks and track stitched orders from the same profile.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="auth-body">
+            <div class="auth-header-row">
+              <div>
+                <p class="eyebrow">Welcome</p>
+                <h3 class="auth-title">Login / Sign Up</h3>
+                <p class="auth-subtitle">Minimal, quick, and made for modern shoppers.</p>
+              </div>
+              <button class="icon-btn auth-close-btn" id="closeAuthModal" aria-label="Close login popup">X</button>
+            </div>
+
+            <div class="auth-switch">
+              <button class="pill active auth-tab" type="button" data-auth-tab="signup">Sign Up</button>
+              <button class="pill auth-tab" type="button" data-auth-tab="login">Login</button>
+            </div>
+
+            <form class="auth-form active" id="customerSignupForm">
+              <div class="auth-form-heading">
+                <h3>Create your account</h3>
+                <p>Join the store and unlock shopping, tailoring, and personalized service.</p>
+              </div>
+              <div class="form-row">
+                <label>
+                  Full name
+                  <input name="name" type="text" placeholder="Customer name" required />
+                </label>
+                <label>
+                  Email
+                  <input name="email" type="email" placeholder="customer@example.com" required />
+                </label>
+              </div>
+              <div class="form-row">
+                <label>
+                  Password
+                  <input name="password" type="password" placeholder="Create password" required />
+                </label>
+                <label>
+                  Mobile
+                  <input name="phone" type="tel" placeholder="+91" required />
+                </label>
+              </div>
+              <div class="form-row">
+                <label>
+                  Membership plan
+                  <select name="membershipStatus" required>
+                    <option value="silver">Silver Member</option>
+                    <option value="gold">Gold Member</option>
+                    <option value="platinum">Platinum Member</option>
+                  </select>
+                </label>
+                <label>
+                  Fashion focus
+                  <select name="stylePreference" required>
+                    <option value="Formal Wear">Formal Wear</option>
+                    <option value="Wedding Wear">Wedding Wear</option>
+                    <option value="Party Wear">Party Wear</option>
+                    <option value="Casual Wear">Casual Wear</option>
+                  </select>
+                </label>
+              </div>
+              <button class="primary-btn full" type="submit">Create Customer Account</button>
+              <p class="form-note" id="customerSignupMessage">Create a customer account from the top of the page.</p>
+            </form>
+
+            <form class="auth-form" id="customerLoginForm">
+              <div class="auth-form-heading">
+                <h3>Welcome back</h3>
+                <p>Log in to continue shopping and manage your saved style preferences.</p>
+              </div>
+              <div class="form-row">
+                <label>
+                  Email
+                  <input name="email" type="email" placeholder="customer@example.com" required />
+                </label>
+                <label>
+                  Password
+                  <input name="password" type="password" placeholder="Enter password" required />
+                </label>
+              </div>
+              <button class="secondary-btn full" type="submit">Login to Account</button>
+              <button class="ghost-btn full forgot-password-btn" id="forgotPasswordButton" type="button">Forgot password?</button>
+              <p class="form-note" id="customerLoginMessage">Existing customers can log in here.</p>
+            </form>
+
+            <form class="auth-form" id="forgotPasswordForm">
+              <div class="auth-form-heading">
+                <h3>Reset password</h3>
+                <p>Enter your registered email and we will send recovery instructions to your email and mobile number.</p>
+              </div>
+              <label>
+                Registered email
+                <input name="email" type="email" placeholder="customer@example.com" required />
+              </label>
+              <button class="primary-btn full" type="submit">Send Reset Instructions</button>
+              <button class="ghost-btn full" id="backToLoginButton" type="button">Back to Login</button>
+              <p class="form-note" id="passwordResetMessage">Use the email linked to your House of Styles account.</p>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-overlay" id="accountModal" hidden>
+      <div class="modal-card">
+        <div class="drawer-header">
+          <div>
+            <p class="eyebrow">Customer Account</p>
+            <h2 id="accountModalTitle">Your Profile</h2>
+          </div>
+          <button class="icon-btn" id="closeAccountModal" aria-label="Close profile popup">X</button>
+        </div>
+        <div class="modal-body">
+          <p id="accountModalText" class="hero-text"></p>
+          <div class="profile-summary" id="profileSummary"></div>
+
+          <!-- Orders Section (Hidden by default) -->
+          <div id="ordersSection" hidden>
+            <p class="filter-label">Order History</p>
+            <div id="ordersList" class="orders-history-list"></div>
+            <button class="ghost-btn full mt-2" id="backToProfileBtn">Back to Profile</button>
+          </div>
+
+          <div class="profile-actions" id="profileActionsGroup" aria-label="Profile options">
+            <button class="secondary-btn full" type="button" data-profile-action="cart">Open Bag</button>
+            <button class="secondary-btn full" type="button" data-profile-action="orders">Order History</button>
+            <button class="secondary-btn full" type="button" data-profile-action="favorites">Open Favorites</button>
+            <button class="secondary-btn full" type="button" data-profile-action="membership">VIP Membership</button>
+            <button class="secondary-btn full" type="button" data-profile-action="custom">Custom Studio</button>
+            <button class="secondary-btn full" type="button" data-profile-action="notifications">Notification Preferences</button>
+            <button class="primary-btn full" type="button" data-profile-action="logout">Logout</button>
+          </div>
+        </div>
+        <div class="drawer-footer">
+          <button class="primary-btn full" id="confirmAccountModal" type="button">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Payment Modal -->
+    <div class="modal-overlay" id="paymentModal" hidden>
+      <div class="modal-card">
+        <div class="drawer-header">
+          <div>
+            <p class="eyebrow">Checkout</p>
+            <h2>Select Payment Method</h2>
+          </div>
+          <button class="icon-btn" id="closePaymentModal">X</button>
+        </div>
+        <div class="modal-body">
+          <div class="payment-options">
+            <button class="payment-method-btn" id="stripePaymentBtn">
+              <span class="payment-icon">💳</span>
+              <span class="payment-label">Stripe (Card/Apple Pay)</span>
+            </button>
+            <button class="payment-method-btn" id="upiPaymentBtn">
+              <span class="payment-icon">📱</span>
+              <span class="payment-label">UPI (GPay/PhonePe)</span>
+            </button>
+          </div>
+
+          <div id="stripePaymentForm" hidden>
+            <div id="payment-element">
+              <!-- Stripe.js injects the Payment Element here -->
+            </div>
+            <button class="primary-btn full mt-2" id="submitStripePayment">Pay Now</button>
+            <div id="payment-message" hidden></div>
+          </div>
+
+          <div id="upiPaymentForm" hidden>
+            <label>
+              UPI ID
+              <input type="text" id="upiIdInput" placeholder="username@upi" required />
+            </label>
+            <button class="primary-btn full mt-2" id="submitUPIPayment">Initiate UPI Payment</button>
+            <p class="form-note">A request will be sent to your UPI app.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <template id="productCardTemplate">
+      <article class="product-card">
+        <div class="product-visual">
+          <button class="favorite-toggle" type="button" aria-label="Toggle favorite">Fav</button>
+          <span class="product-badge"></span>
+        </div>
+        <div class="product-copy">
+          <p class="product-category"></p>
+          <h3 class="product-name"></h3>
+          <p class="product-description"></p>
+          <div class="product-meta">
+            <strong class="product-price"></strong>
+            <span class="product-rating"></span>
+          </div>
+          <div class="size-row"></div>
+          <button class="primary-btn full add-cart-btn" type="button">Add to Cart</button>
+        </div>
+      </article>
+    </template>
+
+    <!-- Backend Integration -->
+    <script src="https://js.stripe.com/v3/"></script>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script src="api-client.js"></script>
+    <script src="notifications.js"></script>
+    <script src="integration.js"></script>
+  </body>
+</html>

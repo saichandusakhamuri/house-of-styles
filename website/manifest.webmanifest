@@ -1,0 +1,17 @@
+{
+  "name": "House of Styles",
+  "short_name": "HouseStyles",
+  "description": "Fashion storefront with VIP membership and custom styling choices.",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f9f4ef",
+  "theme_color": "#241816",
+  "icons": [
+    {
+      "src": "./app-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

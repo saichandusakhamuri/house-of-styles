@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>House of Styles | Custom Options</title>
+    <meta name="theme-color" content="#241816" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="topbar">
+        <a href="index.html" class="brand">
+          <span class="brand-mark">HT</span>
+          <span>
+            <strong>House of Styles</strong>
+            <small>VIP Fashion Atelier</small>
+          </span>
+        </a>
+
+        <nav class="main-nav">
+          <a href="index.html#shop">Shop</a>
+          <a href="vip.html">VIP Club</a>
+          <a href="custom.html">Custom Studio</a>
+          <a href="index.html#experience">Experience</a>
+        </nav>
+
+        <div class="topbar-actions">
+          <a class="secondary-btn top-login-btn" href="custom.html">Back to Custom Studio</a>
+        </div>
+      </header>
+
+      <main class="vip-page">
+        <section class="vip-hero">
+          <div class="vip-hero-copy">
+            <p class="eyebrow" id="customOptionsEyebrow">Custom Options</p>
+            <p class="hero-text" id="customOptionsDescription">
+              Explore multiple looks and pick the one that best matches your vision.
+            </p>
+          </div>
+
+          <div class="vip-hero-card">
+            <span class="tag dark">Model Selection</span>
+            <p>Each option below represents a stronger direction for your final custom outfit.</p>
+          </div>
+        </section>
+
+        <section class="custom-section">
+          <div class="section-heading inline">
+            <div>
+              <p class="eyebrow">Available Models</p>
+            </div>
+          </div>
+
+          <div class="custom-options-gallery" id="customOptionsGallery"></div>
+        </section>
+      </main>
+    </div>
+
+    <script src="custom-options.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
