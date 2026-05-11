@@ -1,0 +1,16 @@
+# Dependencies
+node_modules/
+.DS_Store
+*.log
+
+# Backend specific
+website/backend/node_modules/
+website/backend/.env
+website/backend/config/*.json
+
+# Android specific
+android-app/HouseOfStylesApp/.gradle/
+android-app/HouseOfStylesApp/local.properties
+android-app/HouseOfStylesApp/.idea/
+android-app/HouseOfStylesApp/app/build/
+android-app/HouseOfStylesApp/build/
