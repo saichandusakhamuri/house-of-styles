@@ -1,12 +1,10 @@
 const express = require('express');
-const mongoose = require('mongoose');
 const CustomOrder = require('../models/CustomOrder');
 const { authenticate, isAdmin } = require('../middleware/auth');
 const { validateCustomOrderCreate, validateId, validatePagination, handleValidationErrors } = require('../middleware/validation');
 const { AppError } = require('../middleware/errorHandler');
 const { calculateCustomOrderPrice } = require('../services/pricing');
 
-const DEMO_CUSTOM_ORDERS = [];
 const router = express.Router();
 
 /**
@@ -16,33 +14,6 @@ const router = express.Router();
 router.post('/', authenticate, validateCustomOrderCreate, handleValidationErrors, async (req, res) => {
   try {
     const { title, description, desiredDate, estimatedBudget, referenceImages, fabricPreference, colorPreferences, measurements } = req.body;
-
-    if (mongoose.connection.readyState !== 1 || req.user?.isDemoUser) {
-      const demoOrder = {
-        _id: `demo_custom_${Date.now()}`,
-        title,
-        description,
-        desiredDate,
-        estimatedBudget,
-        referenceImages: referenceImages || [],
-        fabricPreference: fabricPreference || [],
-        colorPreferences: colorPreferences || [],
-        measurements: measurements || {},
-        userId: req.userId,
-        status: 'inquiry',
-        paymentStatus: 'pending',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-
-      DEMO_CUSTOM_ORDERS.unshift(demoOrder);
-
-      return res.status(201).json({
-        success: true,
-        message: 'Custom order inquiry created successfully (demo mode)',
-        data: demoOrder,
-      });
-    }
 
     const customOrder = new CustomOrder({
       userId: req.userId,
@@ -76,27 +47,6 @@ router.post('/', authenticate, validateCustomOrderCreate, handleValidationErrors
 router.get('/', authenticate, validatePagination, handleValidationErrors, async (req, res) => {
   try {
     const { page = 1, limit = 10, status } = req.query;
-
-    if (mongoose.connection.readyState !== 1 || req.user?.isDemoUser) {
-      let orders = DEMO_CUSTOM_ORDERS.filter((order) => order.userId === req.userId);
-      if (status) {
-        orders = orders.filter((order) => order.status === status);
-      }
-
-      const start = (parseInt(page) - 1) * parseInt(limit);
-      const paginatedOrders = orders.slice(start, start + parseInt(limit));
-
-      return res.json({
-        success: true,
-        data: paginatedOrders,
-        pagination: {
-          total: orders.length,
-          page: parseInt(page),
-          limit: parseInt(limit),
-          pages: Math.ceil(orders.length / parseInt(limit)),
-        },
-      });
-    }
 
     const filter = { userId: req.userId };
     if (status) {
@@ -134,22 +84,6 @@ router.get('/', authenticate, validatePagination, handleValidationErrors, async 
  */
 router.get('/:id', authenticate, validateId, handleValidationErrors, async (req, res) => {
   try {
-    if (mongoose.connection.readyState !== 1 || req.user?.isDemoUser) {
-      const customOrder = DEMO_CUSTOM_ORDERS.find((order) => order._id === req.params.id);
-      if (!customOrder) {
-        throw new AppError('Custom order not found', 404);
-      }
-
-      if (customOrder.userId !== req.userId && req.userRole !== 'admin') {
-        throw new AppError('Access denied', 403);
-      }
-
-      return res.json({
-        success: true,
-        data: customOrder,
-      });
-    }
-
     const customOrder = await CustomOrder.findById(req.params.id)
       .populate('userId', 'firstName lastName email')
       .populate('assignedDesigner', 'firstName lastName email')

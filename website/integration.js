@@ -73,10 +73,12 @@ const searchInput = document.getElementById('searchInput');
 const sortSelect = document.getElementById('sortSelect');
 const categoryPills = document.querySelectorAll('.shop-category-strip .pill');
 
-// Stripe Initialization (Using a test key)
+// Stripe is only enabled when a real publishable key is provided in runtime config.
 let stripe;
 try {
-  stripe = Stripe('pk_test_51O7YtSCDXzG4U1fWjR6v7Yx8p9q0r1s2t3u4v5w6x7y8z');
+  if (window.HOS_CONFIG?.stripePublicKey) {
+    stripe = Stripe(window.HOS_CONFIG.stripePublicKey);
+  }
 } catch (e) {
   console.warn('Stripe not loaded');
 }
@@ -118,130 +120,6 @@ async function initializeApp() {
 
 // ==================== PRODUCT MANAGEMENT ====================
 
-// Mock Data for fallback
-const MOCK_PRODUCTS = [
-  {
-    _id: "mock1",
-    name: "Classic Navy Blazer",
-    description: "Tailored fit navy blue blazer for professional settings.",
-    basePrice: 4500,
-    finalPrice: 4500,
-    category: "Formal Wear",
-    audience: "Everyday",
-    sizes: ["S", "M", "L", "XL"],
-    colors: ["Navy Blue"],
-    isFeatured: true,
-    badge: "Bestseller",
-    palette: "linear-gradient(135deg, #2c3e50, #000000)",
-    discountPercentage: 0
-  },
-  {
-    _id: "mock2",
-    name: "Regal Wedding Sherwani",
-    description: "Gold embroidered sherwani for premium wedding styling.",
-    basePrice: 12500,
-    finalPrice: 12500,
-    category: "Wedding Wear",
-    audience: "Wedding",
-    sizes: ["M", "L", "XL"],
-    colors: ["Gold", "Cream"],
-    isFeatured: true,
-    badge: "Premium",
-    palette: "linear-gradient(135deg, #d4af37, #8b4513)",
-    discountPercentage: 0
-  },
-  {
-    _id: "mock3",
-    name: "Elegant Evening Gown",
-    description: "Flowing silk dress designed for evening movement.",
-    basePrice: 8900,
-    finalPrice: 8900,
-    category: "Party Wear",
-    audience: "Party",
-    sizes: ["XS", "S", "M"],
-    colors: ["Emerald Green", "Midnight Black"],
-    isFeatured: true,
-    badge: "New",
-    palette: "linear-gradient(135deg, #004d40, #000000)",
-    discountPercentage: 0
-  },
-  {
-    _id: "mock4",
-    name: "Casual Linen Shirt",
-    description: "Breathable linen shirt for relaxed everyday comfort.",
-    basePrice: 2200,
-    finalPrice: 2200,
-    category: "Casual Wear",
-    audience: "Everyday",
-    sizes: ["S", "M", "L", "XL"],
-    colors: ["White", "Beige"],
-    isFeatured: false,
-    badge: "Essentials",
-    palette: "linear-gradient(135deg, #f5f5f5, #bdbdbd)",
-    discountPercentage: 0
-  },
-  {
-    _id: "mock5",
-    name: "Festive Silk Kurta Set",
-    description: "A polished silk kurta set with festive detailing and all-day comfort.",
-    basePrice: 6800,
-    finalPrice: 6800,
-    category: "Formal Wear",
-    audience: "Festive",
-    sizes: ["S", "M", "L", "XL"],
-    colors: ["Maroon", "Ivory"],
-    isFeatured: true,
-    badge: "Festive",
-    palette: "linear-gradient(135deg, #7f1d1d, #f5d0a9)",
-    discountPercentage: 0
-  },
-  {
-    _id: "mock6",
-    name: "Tailored Tuxedo Edit",
-    description: "Made-to-measure evening tuxedo styling for receptions and black-tie events.",
-    basePrice: 18500,
-    finalPrice: 18500,
-    category: "Tailored",
-    audience: "Party",
-    sizes: ["Made to Measure"],
-    colors: ["Black", "Ivory"],
-    isFeatured: true,
-    badge: "Custom",
-    palette: "linear-gradient(135deg, #111827, #9ca3af)",
-    discountPercentage: 0
-  },
-  {
-    _id: "mock7",
-    name: "Everyday Co-ord Set",
-    description: "Relaxed matching separates with a clean silhouette for daily wear.",
-    basePrice: 3200,
-    finalPrice: 3200,
-    category: "Casual Wear",
-    audience: "Everyday",
-    sizes: ["XS", "S", "M", "L"],
-    colors: ["Sage", "Cream"],
-    isFeatured: false,
-    badge: "Easy Wear",
-    palette: "linear-gradient(135deg, #8ea58c, #f7efe5)",
-    discountPercentage: 0
-  },
-  {
-    _id: "mock8",
-    name: "Embroidered Reception Lehenga",
-    description: "Detailed lehenga with contemporary sparkle for wedding receptions.",
-    basePrice: 24500,
-    finalPrice: 24500,
-    category: "Wedding Wear",
-    audience: "Wedding",
-    sizes: ["XS", "S", "M", "L"],
-    colors: ["Rose Gold", "Champagne"],
-    isFeatured: true,
-    badge: "Signature",
-    palette: "linear-gradient(135deg, #b76e79, #f8e4c9)",
-    discountPercentage: 0
-  }
-];
-
 function normalizeProduct(product) {
   const basePrice = Number(product.basePrice || product.price || product.finalPrice || 0);
   const finalPrice = Number(product.finalPrice || basePrice);
@@ -267,12 +145,13 @@ async function loadProducts(options = {}) {
     });
 
     const apiProducts = Array.isArray(response.data) ? response.data : [];
-    appState.products = (apiProducts.length ? apiProducts : MOCK_PRODUCTS).map(normalizeProduct);
+    appState.products = apiProducts.map(normalizeProduct);
     renderProducts();
   } catch (error) {
-    console.warn('API Failed, using Mock Products', error);
-    appState.products = MOCK_PRODUCTS.map(normalizeProduct);
+    console.warn('Product API failed', error);
+    appState.products = [];
     renderProducts();
+    showNotification(error.message || 'Products are unavailable right now.', 'error');
   }
 }
 
@@ -554,10 +433,7 @@ async function checkoutCart() {
     showNotification(`Order created! Please select payment method.`, 'success');
   } catch (error) {
     console.error('Checkout error:', error);
-    currentOrderId = `demo_${Date.now()}`;
-    paymentModal.hidden = false;
-    closeCart();
-    showNotification('Backend order storage is unavailable, continuing with demo checkout.', 'info');
+    showNotification(error.message || 'Checkout failed. Please try again.', 'error');
   }
 }
 
@@ -568,12 +444,13 @@ async function handleStripePayment() {
   upiPaymentForm.hidden = true;
 
   try {
-    if (!stripe || String(currentOrderId).startsWith('demo_')) {
-      const submitButton = document.getElementById('submitStripePayment');
-      submitButton.onclick = () => {
-        showNotification('Processing demo card payment...', 'info');
-        setTimeout(paymentComplete, 1000);
-      };
+    if (!currentOrderId) {
+      showNotification('Please create an order before payment.', 'warning');
+      return;
+    }
+
+    if (!stripe) {
+      showNotification('Card payments are not configured yet.', 'error');
       return;
     }
 
@@ -586,7 +463,7 @@ async function handleStripePayment() {
     paymentElement.mount('#payment-element');
 
     document.getElementById('submitStripePayment').onclick = async () => {
-      const { error } = await stripe.confirmPayment({
+      const { error, paymentIntent } = await stripe.confirmPayment({
         elements: stripeElements,
         confirmParams: {
           return_url: window.location.href,
@@ -597,7 +474,7 @@ async function handleStripePayment() {
       if (error) {
         showNotification(error.message, 'error');
       } else {
-        await api.confirmPayment(currentOrderId, 'stripe', 'pi_mock_' + Date.now());
+        await api.confirmPayment(currentOrderId, 'stripe', paymentIntent?.id);
         paymentComplete();
       }
     };
@@ -619,22 +496,15 @@ async function handleUPIPayment() {
     }
 
     try {
-      if (String(currentOrderId).startsWith('demo_')) {
-        showNotification('Demo UPI request sent. Completing payment...', 'info');
-        setTimeout(paymentComplete, 1000);
+      if (!currentOrderId) {
+        showNotification('Please create an order before payment.', 'warning');
         return;
       }
 
       await api.initiateUPIPayment(currentOrderId, upiId);
       showNotification('UPI request sent! Please check your UPI app.', 'info');
-
-      // Simulate confirmation after 3 seconds for demo
-      setTimeout(async () => {
-        await api.confirmPayment(currentOrderId, 'upi', 'upi_mock_' + Date.now());
-        paymentComplete();
-      }, 3000);
     } catch (error) {
-      showNotification('UPI initiation failed', 'error');
+      showNotification(error.message || 'UPI initiation failed', 'error');
     }
   };
 }
@@ -1004,18 +874,12 @@ async function handleLogout() {
 
 // ==================== MEMBERSHIP MANAGEMENT ====================
 
-const MOCK_TIERS = [
-  { _id: "t1", name: "Silver", discountPercentage: 5 },
-  { _id: "t2", name: "Gold", discountPercentage: 10 },
-  { _id: "t3", name: "Platinum", discountPercentage: 15 }
-];
-
 async function loadMembershipTiers() {
   try {
     const response = await api.getMembershipTiers();
-    appState.membershipTiers = response.data || MOCK_TIERS;
+    appState.membershipTiers = response.data || [];
   } catch (error) {
-    appState.membershipTiers = MOCK_TIERS;
+    appState.membershipTiers = [];
   }
 }
 

@@ -1,49 +1,10 @@
 const express = require('express');
-const mongoose = require('mongoose');
 const MembershipTier = require('../models/MembershipTier');
 const User = require('../models/User');
 const { authenticate, isAdmin } = require('../middleware/auth');
 const { handleValidationErrors } = require('../middleware/validation');
 const { AppError } = require('../middleware/errorHandler');
 const { getMembershipTiers } = require('../services/pricing');
-
-const DEMO_MEMBERSHIP_TIERS = [
-  {
-    _id: 'silver',
-    name: 'Silver',
-    description: 'Entry membership with 10% off and early previews.',
-    discountPercentage: 10,
-    annualPrice: 999,
-    monthlyPrice: 99,
-    features: ['10% off products', 'Early access to drops'],
-    isActive: true,
-    position: 1,
-  },
-  {
-    _id: 'gold',
-    name: 'Gold',
-    description: 'Higher savings and priority tailoring support.',
-    discountPercentage: 20,
-    annualPrice: 1799,
-    monthlyPrice: 179,
-    features: ['20% off products', 'Priority tailoring', 'Early access'],
-    isActive: true,
-    position: 2,
-  },
-  {
-    _id: 'platinum',
-    name: 'Platinum',
-    description: 'Top-tier membership with maximum discounts and service.',
-    discountPercentage: 30,
-    annualPrice: 2499,
-    monthlyPrice: 249,
-    features: ['30% off products', 'Free shipping', 'One-on-one styling'],
-    isActive: true,
-    position: 3,
-  },
-];
-
-const getDemoMembershipTierById = (id) => DEMO_MEMBERSHIP_TIERS.find((tier) => tier._id === id || tier.name.toLowerCase() === id.toLowerCase());
 
 const router = express.Router();
 
@@ -70,19 +31,13 @@ router.get('/', async (req, res) => {
  */
 router.get('/:id', async (req, res) => {
   try {
-    if (mongoose.connection.readyState !== 1) {
-      const tier = getDemoMembershipTierById(req.params.id);
-      if (!tier) {
-        throw new AppError('Membership tier not found', 404);
-      }
-
-      return res.json({
-        success: true,
-        data: tier,
-      });
-    }
-
-    const tier = await MembershipTier.findById(req.params.id);
+    const isObjectId = /^[0-9a-fA-F]{24}$/.test(req.params.id);
+    const tierName = ['Silver', 'Gold', 'Platinum'].find(
+      (name) => name.toLowerCase() === req.params.id.toLowerCase()
+    );
+    const tier = isObjectId
+      ? await MembershipTier.findById(req.params.id)
+      : await MembershipTier.findOne({ name: tierName || req.params.id });
 
     if (!tier) {
       throw new AppError('Membership tier not found', 404);
@@ -107,28 +62,6 @@ router.post('/upgrade', authenticate, async (req, res) => {
 
     if (!['Silver', 'Gold', 'Platinum'].includes(tierName)) {
       throw new AppError('Invalid membership tier', 400);
-    }
-
-    if (mongoose.connection.readyState !== 1 || req.user?.isDemoUser) {
-      const tier = getDemoMembershipTierById(tierName);
-      const expiryDate = new Date();
-      if (duration === 'annual') {
-        expiryDate.setFullYear(expiryDate.getFullYear() + 1);
-      } else {
-        expiryDate.setMonth(expiryDate.getMonth() + 1);
-      }
-
-      return res.json({
-        success: true,
-        message: `Membership upgraded to ${tierName} (${duration}) in demo mode`,
-        data: {
-          membershipTier: tier,
-          amount: duration === 'annual' ? tier.annualPrice : tier.monthlyPrice,
-          duration,
-          membershipExpiryDate: expiryDate,
-          isExpired: false,
-        },
-      });
     }
 
     const tier = await MembershipTier.findOne({ name: tierName });

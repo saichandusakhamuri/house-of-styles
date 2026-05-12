@@ -1,10 +1,7 @@
 const express = require('express');
-const mongoose = require('mongoose');
 const User = require('../models/User');
 const { authenticate, isAdmin } = require('../middleware/auth');
-const { validateId, handleValidationErrors } = require('../middleware/validation');
 const { AppError } = require('../middleware/errorHandler');
-const bcryptjs = require('bcryptjs');
 
 const router = express.Router();
 
@@ -14,21 +11,6 @@ const router = express.Router();
  */
 router.get('/profile', authenticate, async (req, res) => {
   try {
-    if (mongoose.connection.readyState !== 1 || req.user?.isDemoUser) {
-      return res.json({
-        success: true,
-        data: {
-          _id: req.userId,
-          id: req.userId,
-          firstName: 'Demo',
-          lastName: 'Customer',
-          email: 'demo@example.com',
-          role: req.userRole || 'user',
-          isDemoUser: true,
-        },
-      });
-    }
-
     const user = await User.findById(req.userId).populate('membershipTier');
 
     if (!user) {
@@ -113,18 +95,6 @@ router.put('/change-password', authenticate, async (req, res) => {
  */
 router.get('/membership', authenticate, async (req, res) => {
   try {
-    if (mongoose.connection.readyState !== 1 || req.user?.isDemoUser) {
-      return res.json({
-        success: true,
-        data: {
-          membershipTier: null,
-          membershipUpgradeDate: null,
-          membershipExpiryDate: null,
-          isExpired: false,
-        },
-      });
-    }
-
     const user = await User.findById(req.userId).populate('membershipTier');
 
     if (!user) {

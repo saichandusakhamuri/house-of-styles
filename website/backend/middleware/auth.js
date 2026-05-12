@@ -1,6 +1,6 @@
 const jwt = require('jsonwebtoken');
-const mongoose = require('mongoose');
 const { AppError } = require('./errorHandler');
+const { isDatabaseConnected } = require('./database');
 const User = require('../models/User');
 
 // Verify JWT token
@@ -12,10 +12,14 @@ const verifyToken = (req, res, next) => {
       throw new AppError('No token provided. Please log in', 401);
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'house_of_styles_secret_key_2024');
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
     req.userId = decoded.id;
     req.userRole = decoded.role;
-    req.isDemoUser = typeof decoded.id === 'string' && decoded.id.startsWith('demo_');
+
+    if (typeof decoded.id === 'string' && decoded.id.startsWith('demo_')) {
+      throw new AppError('Temporary sessions are no longer supported. Please create a real account.', 401);
+    }
+
     next();
   } catch (error) {
     if (error instanceof AppError) {
@@ -30,18 +34,10 @@ const authenticate = async (req, res, next) => {
   try {
     verifyToken(req, res, () => {});
     
-    // Demo users should be treated in demo mode even if the database reconnects later
-    if (mongoose.connection.readyState !== 1 || req.isDemoUser) {
-      req.user = {
-        _id: req.userId,
-        id: req.userId,
-        role: req.userRole || 'user',
-        isDemoUser: true,
-      };
-      return next();
+    if (!isDatabaseConnected()) {
+      throw new AppError('Database connection is required. Please try again shortly.', 503);
     }
 
-    // Normal mode: fetch from database
     const user = await User.findById(req.userId).select('-password');
     if (!user) {
       throw new AppError('User not found', 404);
@@ -67,7 +63,10 @@ const optionalAuth = (req, res, next) => {
   try {
     const token = req.headers.authorization?.split(' ')[1];
     if (token) {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'house_of_styles_secret_key_2024');
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      if (typeof decoded.id === 'string' && decoded.id.startsWith('demo_')) {
+        return next();
+      }
       req.userId = decoded.id;
       req.userRole = decoded.role;
     }

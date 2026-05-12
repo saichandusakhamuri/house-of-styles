@@ -3,7 +3,7 @@ const { AppError } = require('./errorHandler');
 
 const isValidEntityId = (value) => {
   const mongoIdPattern = /^[0-9a-fA-F]{24}$/;
-  return mongoIdPattern.test(value) || /^demo_/.test(value);
+  return mongoIdPattern.test(value);
 };
 
 // Validation error handler middleware

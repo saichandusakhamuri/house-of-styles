@@ -15,7 +15,7 @@ const productSchema = new mongoose.Schema(
     category: {
       type: String,
       required: [true, 'Category is required'],
-      enum: ['Wedding Wear', 'Party Wear', 'Casual Wear', 'Formal Wear', 'Festival Wear'],
+      enum: ['Wedding Wear', 'Party Wear', 'Casual Wear', 'Formal Wear', 'Festival Wear', 'Tailored'],
     },
     audience: {
       type: String,
@@ -37,7 +37,7 @@ const productSchema = new mongoose.Schema(
     sizes: [
       {
         type: String,
-        enum: ['XS', 'S', 'M', 'L', 'XL', 'XXL'],
+        enum: ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'Made to Measure'],
       },
     ],
     images: [

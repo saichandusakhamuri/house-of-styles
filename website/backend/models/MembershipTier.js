@@ -6,7 +6,7 @@ const membershipTierSchema = new mongoose.Schema(
       type: String,
       required: [true, 'Membership tier name is required'],
       unique: true,
-      enum: ['Silver', 'Gold', 'Diamond'],
+      enum: ['Silver', 'Gold', 'Platinum', 'Diamond'],
     },
     description: String,
     discountPercentage: {

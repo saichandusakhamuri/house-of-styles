@@ -610,7 +610,7 @@ function bindCartControls() {
     }
 
     alert(
-      "Checkout is in demo mode. Next step: connect Firebase auth, order storage, and Razorpay checkout."
+      "Checkout needs the live backend, order storage, and payment provider configuration."
     );
   });
 }

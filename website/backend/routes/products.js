@@ -1,148 +1,9 @@
 const express = require('express');
-const mongoose = require('mongoose');
 const Product = require('../models/Product');
 const { authenticate, optionalAuth, isAdmin } = require('../middleware/auth');
 const { validateProductCreate, validateId, validatePagination, handleValidationErrors } = require('../middleware/validation');
 const { AppError } = require('../middleware/errorHandler');
 const { calculateProductPrice } = require('../services/pricing');
-
-const DEMO_PRODUCTS = [
-  {
-    _id: 'demo1',
-    name: 'Classic Navy Blazer',
-    description: 'Tailored fit navy blue blazer for professional settings.',
-    category: 'Formal Wear',
-    audience: 'Everyday',
-    basePrice: 4500,
-    isActive: true,
-    isFeatured: true,
-    badge: 'Bestseller',
-    sizes: ['S', 'M', 'L', 'XL'],
-    colors: ['Navy Blue'],
-    palette: 'linear-gradient(135deg, #2c3e50, #000000)',
-  },
-  {
-    _id: 'demo2',
-    name: 'Regal Wedding Sherwani',
-    description: 'Gold embroidered sherwani for premium wedding styling.',
-    category: 'Wedding Wear',
-    audience: 'Wedding',
-    basePrice: 12500,
-    isActive: true,
-    isFeatured: true,
-    badge: 'Premium',
-    sizes: ['M', 'L', 'XL'],
-    colors: ['Gold', 'Cream'],
-    palette: 'linear-gradient(135deg, #d4af37, #8b4513)',
-  },
-  {
-    _id: 'demo3',
-    name: 'Elegant Evening Gown',
-    description: 'Flowing silk dress designed for evening movement.',
-    category: 'Party Wear',
-    audience: 'Party',
-    basePrice: 8900,
-    isActive: true,
-    isFeatured: true,
-    badge: 'New',
-    sizes: ['XS', 'S', 'M'],
-    colors: ['Emerald Green', 'Midnight Black'],
-    palette: 'linear-gradient(135deg, #004d40, #000000)',
-  },
-  {
-    _id: 'demo4',
-    name: 'Casual Linen Shirt',
-    description: 'Breathable linen shirt for relaxed everyday comfort.',
-    category: 'Casual Wear',
-    audience: 'Everyday',
-    basePrice: 2200,
-    isActive: true,
-    isFeatured: false,
-    badge: 'Essentials',
-    sizes: ['S', 'M', 'L', 'XL'],
-    colors: ['White', 'Beige'],
-    palette: 'linear-gradient(135deg, #f5f5f5, #bdbdbd)',
-  },
-  {
-    _id: 'demo5',
-    name: 'Festive Silk Kurta Set',
-    description: 'A polished silk kurta set with festive detailing and all-day comfort.',
-    category: 'Formal Wear',
-    audience: 'Festive',
-    basePrice: 6800,
-    isActive: true,
-    isFeatured: true,
-    badge: 'Festive',
-    sizes: ['S', 'M', 'L', 'XL'],
-    colors: ['Maroon', 'Ivory'],
-    palette: 'linear-gradient(135deg, #7f1d1d, #f5d0a9)',
-  },
-  {
-    _id: 'demo6',
-    name: 'Tailored Tuxedo Edit',
-    description: 'Made-to-measure evening tuxedo styling for receptions and black-tie events.',
-    category: 'Tailored',
-    audience: 'Party',
-    basePrice: 18500,
-    isActive: true,
-    isFeatured: true,
-    badge: 'Custom',
-    sizes: ['Made to Measure'],
-    colors: ['Black', 'Ivory'],
-    palette: 'linear-gradient(135deg, #111827, #9ca3af)',
-  },
-  {
-    _id: 'demo7',
-    name: 'Everyday Co-ord Set',
-    description: 'Relaxed matching separates with a clean silhouette for daily wear.',
-    category: 'Casual Wear',
-    audience: 'Everyday',
-    basePrice: 3200,
-    isActive: true,
-    isFeatured: false,
-    badge: 'Easy Wear',
-    sizes: ['XS', 'S', 'M', 'L'],
-    colors: ['Sage', 'Cream'],
-    palette: 'linear-gradient(135deg, #8ea58c, #f7efe5)',
-  },
-  {
-    _id: 'demo8',
-    name: 'Embroidered Reception Lehenga',
-    description: 'Detailed lehenga with contemporary sparkle for wedding receptions.',
-    category: 'Wedding Wear',
-    audience: 'Wedding',
-    basePrice: 24500,
-    isActive: true,
-    isFeatured: true,
-    badge: 'Signature',
-    sizes: ['XS', 'S', 'M', 'L'],
-    colors: ['Rose Gold', 'Champagne'],
-    palette: 'linear-gradient(135deg, #b76e79, #f8e4c9)',
-  },
-];
-
-const getDemoProducts = ({ category, audience, search, isFeatured, page, limit }) => {
-  let filtered = DEMO_PRODUCTS.filter((product) => product.isActive);
-
-  if (category) filtered = filtered.filter((product) => product.category === category);
-  if (audience) filtered = filtered.filter((product) => product.audience === audience);
-  if (isFeatured === 'true') filtered = filtered.filter((product) => product.isFeatured === true);
-  if (search) {
-    const term = search.toLowerCase();
-    filtered = filtered.filter((product) =>
-      product.name.toLowerCase().includes(term) ||
-      product.description.toLowerCase().includes(term) ||
-      product.category.toLowerCase().includes(term) ||
-      product.audience.toLowerCase().includes(term)
-    );
-  }
-
-  const total = filtered.length;
-  const start = (page - 1) * limit;
-  const products = filtered.slice(start, start + limit);
-
-  return { products, total };
-};
 
 const router = express.Router();
 
@@ -153,62 +14,6 @@ const router = express.Router();
 router.get('/', validatePagination, handleValidationErrors, optionalAuth, async (req, res) => {
   try {
     const { page = 1, limit = 20, category, audience, search, isFeatured } = req.query;
-
-    if (mongoose.connection.readyState !== 1) {
-      const { products, total } = getDemoProducts({ category, audience, search, isFeatured, page: parseInt(page), limit: parseInt(limit) });
-      const productsWithPricing = await Promise.all(
-        products.map(async (product) => {
-          const pricing = await calculateProductPrice(product.basePrice, req.userId);
-          return {
-            ...product,
-            basePrice: pricing.basePrice,
-            finalPrice: pricing.finalPrice,
-            discountApplied: pricing.discountApplied,
-            discountPercentage: pricing.discountPercentage,
-          };
-        })
-      );
-
-      return res.json({
-        success: true,
-        data: productsWithPricing,
-        pagination: {
-          total,
-          page: parseInt(page),
-          limit: parseInt(limit),
-          pages: Math.ceil(total / limit),
-        },
-      });
-    }
-
-    const activeTotal = await Product.countDocuments({ isActive: true });
-
-    if (activeTotal === 0) {
-      const { products, total } = getDemoProducts({ category, audience, search, isFeatured, page: parseInt(page), limit: parseInt(limit) });
-      const productsWithPricing = await Promise.all(
-        products.map(async (product) => {
-          const pricing = await calculateProductPrice(product.basePrice, req.userId);
-          return {
-            ...product,
-            basePrice: pricing.basePrice,
-            finalPrice: pricing.finalPrice,
-            discountApplied: pricing.discountApplied,
-            discountPercentage: pricing.discountPercentage,
-          };
-        })
-      );
-
-      return res.json({
-        success: true,
-        data: productsWithPricing,
-        pagination: {
-          total,
-          page: parseInt(page),
-          limit: parseInt(limit),
-          pages: Math.ceil(total / limit),
-        },
-      });
-    }
 
     const filter = { isActive: true };
 
@@ -224,12 +29,11 @@ router.get('/', validatePagination, handleValidationErrors, optionalAuth, async 
       filter.isFeatured = true;
     }
 
-    let query = Product.find(filter);
-
     if (search) {
-      query = query.find({ $text: { $search: search } });
+      filter.$text = { $search: search };
     }
 
+    const query = Product.find(filter);
     const skip = (page - 1) * limit;
     const products = await query.skip(skip).limit(parseInt(limit)).lean();
 
@@ -270,27 +74,6 @@ router.get('/', validatePagination, handleValidationErrors, optionalAuth, async 
  */
 router.get('/:id', validateId, handleValidationErrors, optionalAuth, async (req, res) => {
   try {
-    if (mongoose.connection.readyState !== 1) {
-      const product = DEMO_PRODUCTS.find((item) => item._id === req.params.id);
-
-      if (!product || !product.isActive) {
-        throw new AppError('Product not found', 404);
-      }
-
-      const pricing = await calculateProductPrice(product.basePrice, req.userId);
-
-      return res.json({
-        success: true,
-        data: {
-          ...product,
-          basePrice: pricing.basePrice,
-          finalPrice: pricing.finalPrice,
-          discountApplied: pricing.discountApplied,
-          discountPercentage: pricing.discountPercentage,
-        },
-      });
-    }
-
     const product = await Product.findById(req.params.id).populate('createdBy', 'firstName lastName');
 
     if (!product || !product.isActive) {

@@ -1,11 +1,23 @@
 const express = require('express');
-const mongoose = require('mongoose');
-const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+const Stripe = require('stripe');
 const { authenticate } = require('../middleware/auth');
 const Order = require('../models/Order');
 const { AppError } = require('../middleware/errorHandler');
 
 const router = express.Router();
+let stripeClient = null;
+
+const getStripeClient = () => {
+  if (!process.env.STRIPE_SECRET_KEY) {
+    throw new AppError('Stripe is not configured. Set STRIPE_SECRET_KEY before taking card payments.', 503);
+  }
+
+  if (!stripeClient) {
+    stripeClient = new Stripe(process.env.STRIPE_SECRET_KEY);
+  }
+
+  return stripeClient;
+};
 
 /**
  * POST /api/payments/create-intent
@@ -13,12 +25,6 @@ const router = express.Router();
  */
 router.post('/create-intent', authenticate, async (req, res) => {
   const { orderId } = req.body;
-
-  if (mongoose.connection.readyState !== 1 || String(orderId).startsWith('demo_')) {
-    return res.json({
-      clientSecret: `pi_demo_${Date.now()}_secret_demo`,
-    });
-  }
 
   const order = await Order.findById(orderId);
   if (!order) {
@@ -30,6 +36,7 @@ router.post('/create-intent', authenticate, async (req, res) => {
   }
 
   // Create a PaymentIntent with the order amount and currency
+  const stripe = getStripeClient();
   const paymentIntent = await stripe.paymentIntents.create({
     amount: Math.round(order.totalAmount * 100), // Stripe expects amount in cents
     currency: 'usd',
@@ -49,36 +56,21 @@ router.post('/create-intent', authenticate, async (req, res) => {
 
 /**
  * POST /api/payments/upi-initiate
- * Initiate a UPI payment (Simulated for this demo)
+ * Initiate a UPI payment
  */
 router.post('/upi-initiate', authenticate, async (req, res) => {
-  const { orderId, upiId } = req.body;
-
-  if (mongoose.connection.readyState !== 1 || String(orderId).startsWith('demo_')) {
-    return res.json({
-      success: true,
-      message: 'UPI payment initiated in demo mode.',
-      vpa: upiId,
-      amount: 0,
-      transactionReference: `UPI-DEMO-${Date.now()}`
-    });
-  }
+  const { orderId } = req.body;
 
   const order = await Order.findById(orderId);
   if (!order) {
     throw new AppError('Order not found', 404);
   }
 
-  // In a real scenario, you'd integrate with a UPI provider here
-  // For this demo, we'll simulate a successful initiation
+  if (order.userId.toString() !== req.userId) {
+    throw new AppError('Access denied', 403);
+  }
 
-  res.json({
-    success: true,
-    message: 'UPI payment initiated. Please complete the payment in your UPI app.',
-    vpa: upiId,
-    amount: order.totalAmount,
-    transactionReference: `UPI-${Date.now()}`
-  });
+  throw new AppError('UPI payment provider is not configured yet.', 503);
 });
 
 /**
@@ -88,23 +80,13 @@ router.post('/upi-initiate', authenticate, async (req, res) => {
 router.post('/confirm', authenticate, async (req, res) => {
   const { orderId, paymentMethod, transactionId } = req.body;
 
-  if (mongoose.connection.readyState !== 1 || String(orderId).startsWith('demo_')) {
-    return res.json({
-      success: true,
-      message: 'Payment confirmed in demo mode',
-      data: {
-        _id: orderId,
-        paymentMethod,
-        paymentStatus: 'completed',
-        transactionId,
-        orderStatus: 'confirmed',
-      }
-    });
-  }
-
   const order = await Order.findById(orderId);
   if (!order) {
     throw new AppError('Order not found', 404);
+  }
+
+  if (order.userId.toString() !== req.userId) {
+    throw new AppError('Access denied', 403);
   }
 
   order.paymentMethod = paymentMethod;

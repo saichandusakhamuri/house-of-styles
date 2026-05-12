@@ -1,5 +1,4 @@
 const express = require('express');
-const mongoose = require('mongoose');
 const Order = require('../models/Order');
 const Product = require('../models/Product');
 const { authenticate, isAdmin } = require('../middleware/auth');
@@ -9,19 +8,6 @@ const { calculateOrderTotal, applyCoupon } = require('../services/pricing');
 
 const router = express.Router();
 
-const DEMO_PRODUCT_PRICES = {
-  1: 4500,
-  2: 12500,
-  3: 8900,
-  4: 2200,
-  mock1: 4500,
-  mock2: 12500,
-  mock3: 8900,
-  mock4: 2200,
-};
-
-const DEMO_ORDERS = [];
-
 /**
  * POST /api/orders
  * Create a new order
@@ -29,41 +15,6 @@ const DEMO_ORDERS = [];
 router.post('/', authenticate, validateOrderCreate, handleValidationErrors, async (req, res) => {
   try {
     const { items, shippingAddress, billingAddress, couponCode } = req.body;
-
-    if (mongoose.connection.readyState !== 1 || req.user?.isDemoUser) {
-      const orderItems = items.map((item) => ({
-        productId: item.productId,
-        quantity: item.quantity,
-        size: item.size,
-        color: item.color,
-        priceAtPurchase: DEMO_PRODUCT_PRICES[item.productId] || 1000,
-      }));
-      const pricing = await calculateOrderTotal(orderItems, req.userId, 100, 5);
-      const order = {
-        _id: `demo_order_${Date.now()}`,
-        orderNumber: `DEMO-${Date.now()}`,
-        userId: req.userId,
-        items: orderItems,
-        subtotal: pricing.subtotal,
-        discountApplied: pricing.discountApplied,
-        discountReason: pricing.discountReason,
-        tax: pricing.tax,
-        shippingCost: pricing.shippingCost,
-        totalAmount: pricing.totalAmount,
-        shippingAddress,
-        billingAddress: billingAddress || shippingAddress,
-        orderStatus: 'pending',
-        paymentStatus: 'pending',
-        createdAt: new Date().toISOString(),
-      };
-
-      DEMO_ORDERS.unshift(order);
-      return res.status(201).json({
-        success: true,
-        message: 'Order created successfully (demo mode)',
-        data: order,
-      });
-    }
 
     // Validate products exist and get prices
     const orderItems = [];
@@ -145,25 +96,6 @@ router.get('/', authenticate, validatePagination, handleValidationErrors, async 
   try {
     const { page = 1, limit = 10, status } = req.query;
 
-    if (mongoose.connection.readyState !== 1 || req.user?.isDemoUser) {
-      let orders = DEMO_ORDERS.filter((order) => order.userId === req.userId);
-      if (status) {
-        orders = orders.filter((order) => order.orderStatus === status);
-      }
-
-      const start = (parseInt(page) - 1) * parseInt(limit);
-      return res.json({
-        success: true,
-        data: orders.slice(start, start + parseInt(limit)),
-        pagination: {
-          total: orders.length,
-          page: parseInt(page),
-          limit: parseInt(limit),
-          pages: Math.ceil(orders.length / parseInt(limit)),
-        },
-      });
-    }
-
     const filter = { userId: req.userId };
     if (status) {
       filter.orderStatus = status;
@@ -199,20 +131,6 @@ router.get('/', authenticate, validatePagination, handleValidationErrors, async 
  */
 router.get('/:id', authenticate, validateId, handleValidationErrors, async (req, res) => {
   try {
-    if (mongoose.connection.readyState !== 1 || req.user?.isDemoUser) {
-      const order = DEMO_ORDERS.find((order) => order._id === req.params.id);
-      if (!order) {
-        throw new AppError('Order not found', 404);
-      }
-      if (order.userId !== req.userId && req.userRole !== 'admin') {
-        throw new AppError('Access denied', 403);
-      }
-      return res.json({
-        success: true,
-        data: order,
-      });
-    }
-
     const order = await Order.findById(req.params.id).populate('items.productId');
 
     if (!order) {

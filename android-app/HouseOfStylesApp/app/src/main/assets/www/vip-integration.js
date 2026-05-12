@@ -25,43 +25,15 @@ const submitUPIPaymentBtn = document.getElementById('submitUPIPayment');
 // Stripe Initialization
 let stripe;
 try {
-  stripe = Stripe('pk_test_51O7YtSCDXzG4U1fWjR6v7Yx8p9q0r1s2t3u4v5w6x7y8z');
+  if (window.HOS_CONFIG?.stripePublicKey) {
+    stripe = Stripe(window.HOS_CONFIG.stripePublicKey);
+  }
 } catch (e) {
   console.warn('Stripe not loaded');
 }
 
 let stripeElements;
 let pendingUpgradeData = null;
-
-const MOCK_VIP_TIERS = [
-  {
-    _id: "t1",
-    name: "Silver",
-    description: "Entry VIP access with shopping discounts and early previews.",
-    monthlyPrice: 299,
-    annualPrice: 2499,
-    discountPercentage: 5,
-    features: ["5% Storewide Discount", "Early Access to Drops", "Standard Custom Support"]
-  },
-  {
-    _id: "t2",
-    name: "Gold",
-    description: "Premium rewards with higher discounts and faster tailoring.",
-    monthlyPrice: 599,
-    annualPrice: 4999,
-    discountPercentage: 10,
-    features: ["10% Storewide Discount", "48h Early Access", "Priority Custom Stitching", "Free Shipping"]
-  },
-  {
-    _id: "t3",
-    name: "Platinum",
-    description: "Elite fashion status with maximum benefits and personal styling.",
-    monthlyPrice: 999,
-    annualPrice: 8999,
-    discountPercentage: 15,
-    features: ["15% Storewide Discount", "Exclusive Collection Access", "Fastest Delivery Route", "Personal Stylist Consult"]
-  }
-];
 
 async function initializeVIP() {
   // Setup payment listeners
@@ -75,9 +47,10 @@ async function initializeVIP() {
     // Load membership tiers
     try {
       const tiersResponse = await api.getMembershipTiers();
-      vipState.membershipTiers = tiersResponse.data || MOCK_VIP_TIERS;
+      vipState.membershipTiers = tiersResponse.data || [];
     } catch (e) {
-      vipState.membershipTiers = MOCK_VIP_TIERS;
+      vipState.membershipTiers = [];
+      showVIPMessage('Membership tiers are unavailable right now.', 'error');
     }
 
     // Load user membership info
@@ -112,6 +85,11 @@ function renderMembershipTiers() {
   if (!tierCardsContainer) return;
 
   tierCardsContainer.innerHTML = '';
+
+  if (!vipState.membershipTiers.length) {
+    tierCardsContainer.innerHTML = '<p class="form-note">Membership tiers are unavailable right now.</p>';
+    return;
+  }
 
   vipState.membershipTiers.forEach((tier) => {
     const tierCard = createTierCard(tier);
@@ -326,25 +304,12 @@ async function handleStripePayment() {
   upiPaymentForm.hidden = true;
 
   try {
-    // Simulated payment intent for membership
-    // In reality, you'd have an endpoint POST /api/payments/create-membership-intent
-    const clientSecret = 'pi_membership_mock_secret_' + Date.now();
-
-    // For demo, if Stripe isn't fully configured, we'll just simulate success
     if (!stripe) {
-      setTimeout(() => confirmUpgrade(), 2000);
+      showVIPMessage('Card payments are not configured yet.', 'error');
       return;
     }
 
-    const appearance = { theme: 'night', variables: { colorPrimary: '#d9c4a3' } };
-    stripeElements = stripe.elements({ appearance, clientSecret });
-
-    // Note: This won't work without a real clientSecret from Stripe
-    // For this demo, we'll simulate the payment flow
-    document.getElementById('submitStripePayment').onclick = async () => {
-      showVIPMessage('Processing payment...', 'info');
-      setTimeout(() => confirmUpgrade(), 2000);
-    };
+    showVIPMessage('Membership card payments need a backend payment intent before upgrading.', 'error');
   } catch (error) {
     console.error('Stripe error:', error);
   }
@@ -361,8 +326,7 @@ async function handleUPIPayment() {
       return;
     }
 
-    showVIPMessage('UPI request sent! Please check your UPI app.', 'info');
-    setTimeout(() => confirmUpgrade(), 3000);
+    showVIPMessage('UPI membership payments are not configured yet.', 'error');
   };
 }
 

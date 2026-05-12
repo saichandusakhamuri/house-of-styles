@@ -2,42 +2,6 @@ const mongoose = require('mongoose');
 const User = require('../models/User');
 const MembershipTier = require('../models/MembershipTier');
 
-const DEMO_MEMBERSHIP_TIERS = [
-  {
-    _id: 'silver',
-    name: 'Silver',
-    description: 'Entry membership with access to basic discounts.',
-    discountPercentage: 10,
-    annualPrice: 999,
-    monthlyPrice: 99,
-    features: ['10% off products', 'Early access to select drops'],
-    isActive: true,
-    position: 1,
-  },
-  {
-    _id: 'gold',
-    name: 'Gold',
-    description: 'Enhanced savings and faster custom order support.',
-    discountPercentage: 20,
-    annualPrice: 1799,
-    monthlyPrice: 179,
-    features: ['20% off products', 'Priority tailoring', 'Early previews'],
-    isActive: true,
-    position: 2,
-  },
-  {
-    _id: 'platinum',
-    name: 'Platinum',
-    description: 'Premier membership with maximum discounts and service.',
-    discountPercentage: 30,
-    annualPrice: 2499,
-    monthlyPrice: 249,
-    features: ['30% off products', 'Free shipping', 'VIP styling support'],
-    isActive: true,
-    position: 3,
-  },
-];
-
 const calculateProductPrice = async (basePrice, userId = null) => {
   try {
     let discountPercentage = 0;
@@ -205,16 +169,8 @@ const calculateCustomOrderPrice = async (baseCost, complexityMultiplier = 1, use
  * @returns {Array} - List of membership tiers
  */
 const getMembershipTiers = async () => {
-  try {
-    if (mongoose.connection.readyState !== 1) {
-      return DEMO_MEMBERSHIP_TIERS;
-    }
-
-    const tiers = await MembershipTier.find({ isActive: true }).sort({ position: 1 });
-    return tiers;
-  } catch (error) {
-    return DEMO_MEMBERSHIP_TIERS;
-  }
+  const tiers = await MembershipTier.find({ isActive: true }).sort({ position: 1 });
+  return tiers;
 };
 
 /**

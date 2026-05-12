@@ -6,7 +6,7 @@ This folder contains deployment guidance for serving the House of Styles website
 
 - The Node backend remains the API server and should run separately on `http://localhost:5001`.
 - Apache Tomcat can serve the static website content from the `website/` folder as a Java webapp.
-- MongoDB is optional and the backend supports demo mode without an external database.
+- MongoDB is required because the backend stores real users, orders, products, and memberships.
 
 ## Deployment steps
 
@@ -31,8 +31,3 @@ This folder contains deployment guidance for serving the House of Styles website
 - The backend API base URL is `http://localhost:5001/api` by default.
 - The site can still call the backend from Tomcat as long as CORS is enabled for the frontend origin.
 - If you want to use Tomcat as a reverse proxy to the Node backend, configure Tomcat's `RewriteValve` or use an HTTP proxy in front of Tomcat.
-
-## Demo mode
-
-- If no `MONGODB_URI` or `MONGODB_ATLAS_URI` is configured, the backend will run in demo mode with sample data.
-- This allows the project to run without installing MongoDB.

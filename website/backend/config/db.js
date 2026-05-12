@@ -3,13 +3,10 @@ const { logger } = require('./logger');
 
 const connectDB = async () => {
   try {
-    const mongoUri = process.env.NODE_ENV === 'production'
-      ? process.env.MONGODB_ATLAS_URI
-      : process.env.MONGODB_URI;
+    const mongoUri = process.env.MONGODB_ATLAS_URI || process.env.MONGODB_URI;
 
     if (!mongoUri) {
-      logger.warn('No MongoDB URI configured. Running in demo mode without database.');
-      return null;
+      throw new Error('No MongoDB URI configured. Set MONGODB_ATLAS_URI in production.');
     }
 
     const conn = await mongoose.connect(mongoUri, {
@@ -21,9 +18,8 @@ const connectDB = async () => {
     logger.info(`MongoDB connected: ${conn.connection.host}`);
     return conn;
   } catch (error) {
-    logger.warn(`MongoDB connection error: ${error.message}`);
-    logger.warn('Server will run in demo mode without database');
-    return null;
+    logger.error(`MongoDB connection error: ${error.message}`);
+    throw error;
   }
 };
 

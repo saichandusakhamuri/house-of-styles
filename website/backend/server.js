@@ -15,6 +15,10 @@ const { logger } = require('./config/logger');
 
 // Middleware imports
 const errorHandler = require('./middleware/errorHandler');
+const {
+  isDatabaseConnected,
+  requireDatabaseConnection,
+} = require('./middleware/database');
 
 // Routes
 const authRoutes = require('./routes/auth');
@@ -50,6 +54,12 @@ const getAllowedOrigins = () => {
 
 const allowedOrigins = getAllowedOrigins();
 
+const validateStartupConfig = () => {
+  if (!process.env.JWT_SECRET) {
+    throw new Error('JWT_SECRET is required for real user mode.');
+  }
+};
+
 const io = socketIO(server, {
   cors: {
     origin: allowedOrigins,
@@ -67,7 +77,7 @@ io.use((socket, next) => {
   try {
     const decoded = jwt.verify(
       token,
-      process.env.JWT_SECRET || 'house_of_styles_secret_key_2024'
+      process.env.JWT_SECRET
     );
 
     if (decoded?.id) {
@@ -100,13 +110,17 @@ app.use(express.urlencoded({ limit: '10mb', extended: true }));
 // Logging
 app.use(morgan('combined', { stream: { write: msg => logger.info(msg) } }));
 
-// Connect to MongoDB
-connectDB();
-
 // Health check endpoint
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'OK', timestamp: new Date().toISOString() });
+  res.json({
+    status: 'OK',
+    database: isDatabaseConnected() ? 'connected' : 'disconnected',
+    timestamp: new Date().toISOString(),
+  });
 });
+
+// Real user mode requires a live database for every API route except health.
+app.use('/api', requireDatabaseConnection);
 
 // API Routes
 app.use('/api/auth', authRoutes);
@@ -140,9 +154,23 @@ app.use((req, res) => {
 
 const PORT = process.env.PORT || 5001;
 
-server.listen(PORT, () => {
-  logger.info(`🚀 Server running on port ${PORT} in ${process.env.NODE_ENV} mode`);
-});
+const startServer = async () => {
+  try {
+    validateStartupConfig();
+    await connectDB();
+
+    server.listen(PORT, () => {
+      logger.info(`🚀 Server running on port ${PORT} in ${process.env.NODE_ENV} mode`);
+    });
+  } catch (error) {
+    logger.error(`Startup failed: ${error.message}`);
+    process.exit(1);
+  }
+};
+
+if (require.main === module) {
+  startServer();
+}
 
 // Handle unhandled promise rejections
 process.on('unhandledRejection', (err) => {
@@ -150,4 +178,4 @@ process.on('unhandledRejection', (err) => {
   process.exit(1);
 });
 
-module.exports = { app, io, server };
+module.exports = { app, io, server, startServer };

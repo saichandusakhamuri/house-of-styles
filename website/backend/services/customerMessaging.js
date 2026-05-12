@@ -11,7 +11,7 @@ const recordMessage = (channel, to, subject, body) => {
     to,
     subject,
     body,
-    status: to ? 'demo_sent' : 'skipped',
+    status: to ? 'queued' : 'skipped',
     createdAt: now(),
   };
 
