@@ -73,7 +73,7 @@ After MongoDB is configured, seed the real database with starter products and me
 npm run seed
 ```
 
-`npm start` also runs the seed step before launching the server so first-time Render deploys have a real catalog in MongoDB.
+`npm start` also checks the seed data after a successful MongoDB connection so first-time Render deploys have a real catalog in MongoDB. If MongoDB is missing, the server still starts but protected API routes return `503` instead of falling back to fake data.
 
 ## API Endpoints
 

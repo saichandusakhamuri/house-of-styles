@@ -12,6 +12,7 @@ const jwt = require('jsonwebtoken');
 // Config imports
 const { connectDB } = require('./config/db');
 const { logger } = require('./config/logger');
+const { seedDefaultData } = require('./seed');
 
 // Middleware imports
 const errorHandler = require('./middleware/errorHandler');
@@ -157,15 +158,24 @@ const PORT = process.env.PORT || 5001;
 const startServer = async () => {
   try {
     validateStartupConfig();
-    await connectDB();
-
-    server.listen(PORT, () => {
-      logger.info(`🚀 Server running on port ${PORT} in ${process.env.NODE_ENV} mode`);
-    });
   } catch (error) {
     logger.error(`Startup failed: ${error.message}`);
     process.exit(1);
   }
+
+  try {
+    await connectDB();
+    const seedSummary = await seedDefaultData();
+    logger.info(
+      `Seed checked: ${seedSummary.createdProducts} products, ${seedSummary.createdTiers} tiers, admin created: ${seedSummary.createdAdmin}`
+    );
+  } catch (error) {
+    logger.error(`Database unavailable. API routes will return 503 until MongoDB is configured: ${error.message}`);
+  }
+
+  server.listen(PORT, () => {
+    logger.info(`🚀 Server running on port ${PORT} in ${process.env.NODE_ENV} mode`);
+  });
 };
 
 if (require.main === module) {

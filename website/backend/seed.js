@@ -226,11 +226,9 @@ const seedDB = async () => {
     });
     console.log('Connected to MongoDB for seeding.');
 
-    const createdProducts = await seedCollection(Product, products, 'name');
-    const createdTiers = await seedCollection(MembershipTier, tiers, 'name');
-    const createdAdmin = await seedAdmin();
+    const summary = await seedDefaultData();
 
-    console.log(`Seed complete. Created ${createdProducts} products, ${createdTiers} membership tiers, admin created: ${createdAdmin}.`);
+    console.log(`Seed complete. Created ${summary.createdProducts} products, ${summary.createdTiers} membership tiers, admin created: ${summary.createdAdmin}.`);
     await mongoose.disconnect();
     process.exit(0);
   } catch (err) {
@@ -239,4 +237,23 @@ const seedDB = async () => {
   }
 };
 
-seedDB();
+const seedDefaultData = async () => {
+  const createdProducts = await seedCollection(Product, products, 'name');
+  const createdTiers = await seedCollection(MembershipTier, tiers, 'name');
+  const createdAdmin = await seedAdmin();
+
+  return {
+    createdProducts,
+    createdTiers,
+    createdAdmin,
+  };
+};
+
+if (require.main === module) {
+  seedDB();
+}
+
+module.exports = {
+  seedDB,
+  seedDefaultData,
+};

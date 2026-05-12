@@ -26,7 +26,7 @@ git push -u origin main
     *   `MONGODB_ATLAS_URI`: *Paste your MongoDB Atlas link here*
     *   `JWT_SECRET`: *Create a random password*
     *   `CORS_ORIGIN`: Your frontend URL, for example `https://house-of-styles-frontend.onrender.com`
-6.  The backend start command seeds starter products and membership tiers automatically. You can also run it manually:
+6.  The backend checks starter products and membership tiers automatically after MongoDB connects. You can also run the seed manually:
     ```bash
     cd website/backend
     npm run seed
