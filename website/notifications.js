@@ -6,11 +6,15 @@
 class NotificationManager {
   constructor(serverURL) {
     if (!serverURL) {
+      if (window.HOS_CONFIG?.socketUrl) {
+        this.serverURL = window.HOS_CONFIG.socketUrl;
+      } else {
       if (window.location.protocol === 'file:') {
         this.serverURL = 'http://10.0.2.2:5001';
       } else {
         const hostname = window.location.hostname || 'localhost';
         this.serverURL = `http://${hostname}:5001`;
+      }
       }
     } else {
       this.serverURL = serverURL;

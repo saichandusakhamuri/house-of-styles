@@ -42,6 +42,6 @@ git push -u origin main
 ## 🔗 Connecting Frontend to Backend
 Once your backend is deployed, Render will give you a URL (e.g., `https://house-of-styles-backend.onrender.com`).
 
-1.  Open `website/api-client.js` in your code.
-2.  Update the `baseURL` detection or hardcode it to your new Render URL.
-3.  Push the change to GitHub, and Render will automatically update your site!
+1. Open `website/runtime-config.js` in your code.
+2. Update `backendOrigin` to your deployed backend URL (Render `onrender.com` URL or your custom domain).
+3. Push the change to GitHub, and Render will automatically update your site!

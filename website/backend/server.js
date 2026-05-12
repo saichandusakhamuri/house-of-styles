@@ -28,9 +28,20 @@ const paymentRoutes = require('./routes/payments');
 
 const app = express();
 const server = http.createServer(app);
+const getAllowedOrigins = () => {
+  const raw = (process.env.CORS_ORIGIN || '').trim();
+  if (!raw) return null;
+  return raw
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean);
+};
+
+const allowedOrigins = getAllowedOrigins();
+
 const io = socketIO(server, {
   cors: {
-    origin: process.env.CORS_ORIGIN?.split(',') || 'http://localhost:3000',
+    origin: allowedOrigins || 'http://localhost:3000',
     methods: ['GET', 'POST'],
     credentials: true,
   },
@@ -64,7 +75,7 @@ io.use((socket, next) => {
 // Security middleware
 app.use(helmet());
 app.use(cors({
-  origin: process.env.CORS_ORIGIN?.split(',') || 'http://localhost:3000',
+  origin: allowedOrigins || 'http://localhost:3000',
   credentials: true,
 }));
 

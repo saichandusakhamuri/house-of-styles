@@ -1,6 +1,11 @@
 const { validationResult, body, param, query } = require('express-validator');
 const { AppError } = require('./errorHandler');
 
+const isValidEntityId = (value) => {
+  const mongoIdPattern = /^[0-9a-fA-F]{24}$/;
+  return mongoIdPattern.test(value) || /^demo_/.test(value);
+};
+
 // Validation error handler middleware
 const handleValidationErrors = (req, res, next) => {
   const errors = validationResult(req);
@@ -59,7 +64,14 @@ const validateCustomOrderCreate = [
 
 // ID validation
 const validateId = [
-  param('id').isMongoId().withMessage('Invalid ID format'),
+  param('id')
+    .custom((value) => {
+      if (!isValidEntityId(value)) {
+        throw new Error('Invalid ID format');
+      }
+      return true;
+    })
+    .withMessage('Invalid ID format'),
 ];
 
 // Pagination validation

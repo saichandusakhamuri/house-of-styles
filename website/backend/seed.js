@@ -98,7 +98,13 @@ const tiers = [
 
 const seedDB = async () => {
   try {
-    const mongoURI = process.env.MONGODB_URI || 'mongodb://localhost:27017/house-of-styles';
+    const mongoURI = process.env.MONGODB_URI || process.env.MONGODB_ATLAS_URI;
+
+    if (!mongoURI) {
+      console.log('No MongoDB URI configured. Skipping seed process in demo mode.');
+      process.exit(0);
+    }
+
     console.log(`Connecting to MongoDB at ${mongoURI.split('@').pop()}...`);
 
     await mongoose.connect(mongoURI, {

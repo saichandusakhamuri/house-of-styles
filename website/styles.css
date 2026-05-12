@@ -1264,6 +1264,31 @@ button {
   line-height: 1.7;
 }
 
+.upgrade-summary {
+  background: var(--surface);
+  padding: 1.5rem;
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+  border: 1px solid var(--border);
+}
+
+.upgrade-summary h3 {
+  margin: 0 0 1rem 0;
+  color: var(--text);
+  font-size: 1.25rem;
+}
+
+.summary-details p {
+  margin: 0.5rem 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.summary-details strong {
+  color: var(--text);
+}
+
 .auth-modal-card {
   width: min(920px, 100%);
   padding: 0;

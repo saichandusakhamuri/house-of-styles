@@ -156,6 +156,14 @@
           <button class="icon-btn" id="closePaymentModal">X</button>
         </div>
         <div class="modal-body">
+          <div id="upgradeSummary" class="upgrade-summary">
+            <h3>Membership Upgrade</h3>
+            <div class="summary-details">
+              <p><strong>Tier:</strong> <span id="summaryTier"></span></p>
+              <p><strong>Duration:</strong> <span id="summaryDuration"></span></p>
+              <p><strong>Amount:</strong> <span id="summaryAmount"></span></p>
+            </div>
+          </div>
           <div class="payment-options">
             <button class="payment-method-btn" id="stripePaymentBtn">
               <span class="payment-icon">💳</span>
@@ -190,8 +198,10 @@
     <!-- Backend Integration -->
     <script src="https://js.stripe.com/v3/"></script>
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script src="runtime-config.js"></script>
     <script src="api-client.js"></script>
     <script src="notifications.js"></script>
+    <script src="integration.js"></script>
     <script src="vip-integration.js"></script>
   </body>
 </html>

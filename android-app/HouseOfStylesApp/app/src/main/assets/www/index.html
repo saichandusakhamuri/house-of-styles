@@ -468,8 +468,17 @@
         <div class="modal-body">
           <p id="accountModalText" class="hero-text"></p>
           <div class="profile-summary" id="profileSummary"></div>
-          <div class="profile-actions" aria-label="Profile options">
+
+          <!-- Orders Section (Hidden by default) -->
+          <div id="ordersSection" hidden>
+            <p class="filter-label">Order History</p>
+            <div id="ordersList" class="orders-history-list"></div>
+            <button class="ghost-btn full mt-2" id="backToProfileBtn">Back to Profile</button>
+          </div>
+
+          <div class="profile-actions" id="profileActionsGroup" aria-label="Profile options">
             <button class="secondary-btn full" type="button" data-profile-action="cart">Open Bag</button>
+            <button class="secondary-btn full" type="button" data-profile-action="orders">Order History</button>
             <button class="secondary-btn full" type="button" data-profile-action="favorites">Open Favorites</button>
             <button class="secondary-btn full" type="button" data-profile-action="membership">VIP Membership</button>
             <button class="secondary-btn full" type="button" data-profile-action="custom">Custom Studio</button>
@@ -548,6 +557,7 @@
     <!-- Backend Integration -->
     <script src="https://js.stripe.com/v3/"></script>
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script src="runtime-config.js"></script>
     <script src="api-client.js"></script>
     <script src="notifications.js"></script>
     <script src="integration.js"></script>

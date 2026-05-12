@@ -4,7 +4,7 @@
  */
 
 // Configuration
-const API_BASE_URL = 'http://localhost:5001/api';
+const API_BASE_URL = window.HOS_CONFIG?.apiBaseUrl || 'http://localhost:5001/api';
 const STORAGE_KEYS = {
   cart: 'houseOfTailor-cart',
   favorites: 'houseOfTailor-favorites',

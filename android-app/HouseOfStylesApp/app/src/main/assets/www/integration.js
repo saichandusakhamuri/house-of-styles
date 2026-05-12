@@ -4,7 +4,7 @@
  */
 
 // Configuration
-const API_BASE_URL = 'http://localhost:5001/api';
+const API_BASE_URL = window.HOS_CONFIG?.apiBaseUrl || 'http://localhost:5001/api';
 const STORAGE_KEYS = {
   cart: 'houseOfTailor-cart',
   favorites: 'houseOfTailor-favorites',
@@ -805,6 +805,46 @@ function renderProfileSummary() {
     <p><strong>Membership</strong>${escapeHTML(membershipName)}</p>
     <p><strong>Saved Activity</strong>${appState.favorites.length} favorites - ${cartQuantity} bag item${cartQuantity === 1 ? '' : 's'}</p>
   `;
+
+  // Reset visibility
+  document.getElementById('ordersSection').hidden = true;
+  document.getElementById('profileActionsGroup').hidden = false;
+  document.getElementById('profileSummary').hidden = false;
+}
+
+async function loadAndRenderOrders() {
+  const ordersList = document.getElementById('ordersList');
+  const ordersSection = document.getElementById('ordersSection');
+  const profileActionsGroup = document.getElementById('profileActionsGroup');
+  const profileSummary = document.getElementById('profileSummary');
+
+  ordersList.innerHTML = '<p>Loading orders...</p>';
+  ordersSection.hidden = false;
+  profileActionsGroup.hidden = true;
+  profileSummary.hidden = true;
+
+  try {
+    const response = await api.getOrders();
+    const orders = response.data || [];
+
+    if (orders.length === 0) {
+      ordersList.innerHTML = '<p class="empty-state">No orders found yet.</p>';
+      return;
+    }
+
+    ordersList.innerHTML = orders.map(order => `
+      <div class="order-history-card">
+        <div class="header">
+          <strong>${order.orderNumber || 'ORD-' + order._id.slice(-6)}</strong>
+          <span class="status status-${order.orderStatus}">${order.orderStatus}</span>
+        </div>
+        <p class="small">${new Date(order.createdAt).toLocaleDateString()}</p>
+        <p><strong>${formatPrice(order.totalAmount)}</strong> (${order.items.length} items)</p>
+      </div>
+    `).join('');
+  } catch (error) {
+    ordersList.innerHTML = '<p class="error-text">Failed to load orders. Please try again later.</p>';
+  }
 }
 
 function openAccountModal(title, text) {
@@ -1093,6 +1133,12 @@ function setupEventListeners() {
     confirmAccountModalBtn.addEventListener('click', closeAccountModal);
   }
 
+  document.getElementById('backToProfileBtn')?.addEventListener('click', () => {
+    document.getElementById('ordersSection').hidden = true;
+    document.getElementById('profileActionsGroup').hidden = false;
+    document.getElementById('profileSummary').hidden = false;
+  });
+
   document.querySelectorAll('[data-profile-action]').forEach((button) => {
     button.addEventListener('click', async () => {
       const action = button.dataset.profileAction;
@@ -1100,6 +1146,8 @@ function setupEventListeners() {
       if (action === 'cart') {
         closeAccountModal();
         openCart();
+      } else if (action === 'orders') {
+        await loadAndRenderOrders();
       } else if (action === 'favorites') {
         closeAccountModal();
         openFavorites();

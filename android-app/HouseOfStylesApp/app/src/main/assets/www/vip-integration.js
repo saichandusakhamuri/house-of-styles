@@ -292,11 +292,27 @@ function showUpgradeModal(tier) {
 
 async function performUpgrade(tierName, duration) {
   try {
-    // In a real app, you'd create an "Order" or "Subscription" record first
-    // For this demo, we'll store the pending upgrade and show the payment modal
-    pendingUpgradeData = { tierName, duration };
+    // Find the tier details
+    const tier = vipState.membershipTiers.find(t => t.name === tierName);
+    if (!tier) {
+      throw new Error('Tier not found');
+    }
+
+    // Calculate the price
+    const price = duration === 'annual' ? tier.annualPrice : tier.monthlyPrice;
+    const durationLabel = duration === 'annual' ? 'Annual' : 'Monthly';
+
+    // Update payment modal with upgrade details
+    document.getElementById('summaryTier').textContent = tierName;
+    document.getElementById('summaryDuration').textContent = durationLabel;
+    document.getElementById('summaryAmount').textContent = formatPrice(price);
+
+    // Store pending upgrade data
+    pendingUpgradeData = { tierName, duration, price, tier };
+    
+    // Show payment modal
     paymentModal.hidden = false;
-    showVIPMessage(`Proceeding to payment for ${tierName} ${duration} plan`, 'info');
+    showVIPMessage(`Ready to upgrade to ${tierName} ${durationLabel} for ${formatPrice(price)}`, 'info');
   } catch (error) {
     console.error('Upgrade initiation error:', error);
     showVIPMessage(error.message || 'Upgrade failed', 'error');

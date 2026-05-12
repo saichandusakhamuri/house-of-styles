@@ -6,6 +6,9 @@
 class APIClient {
   constructor(baseURL) {
     if (!baseURL) {
+      if (window.HOS_CONFIG?.apiBaseUrl) {
+        this.baseURL = window.HOS_CONFIG.apiBaseUrl;
+      } else {
       // Auto-detect base URL
       if (window.location.protocol === 'file:') {
         // We are likely in an Android/iOS app WebView
@@ -14,6 +17,7 @@ class APIClient {
         // Use the current hostname so it works on other devices on the same Wi-Fi
         const hostname = window.location.hostname || 'localhost';
         this.baseURL = `http://${hostname}:5001/api`;
+      }
       }
     } else {
       this.baseURL = baseURL;

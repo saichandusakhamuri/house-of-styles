@@ -1,6 +1,6 @@
 # House of Styles Backend API
 
-A comprehensive RESTful API backend for the House of Styles e-commerce platform, built with Node.js, Express, and MongoDB.
+A comprehensive RESTful API backend for the House of Styles e-commerce platform, built with Node.js and Express. MongoDB support is optional; the backend can run in demo mode without an external database.
 
 ## Features
 
@@ -17,7 +17,7 @@ A comprehensive RESTful API backend for the House of Styles e-commerce platform,
 
 - **Runtime**: Node.js (v16+)
 - **Framework**: Express.js
-- **Database**: MongoDB
+- **Database**: Optional MongoDB (demo mode available without external DB)
 - **Authentication**: JWT (JSON Web Tokens)
 - **Real-time**: Socket.IO
 - **Security**: Helmet, bcryptjs, express-validator
