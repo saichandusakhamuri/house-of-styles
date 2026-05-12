@@ -28,9 +28,15 @@ const paymentRoutes = require('./routes/payments');
 
 const app = express();
 const server = http.createServer(app);
+const defaultAllowedOrigins = [
+  'http://localhost:3000',
+  'http://127.0.0.1:3000',
+  'https://house-of-styles-frontend.onrender.com',
+];
+
 const getAllowedOrigins = () => {
   const raw = (process.env.CORS_ORIGIN || '').trim();
-  if (!raw) return null;
+  if (!raw) return defaultAllowedOrigins;
   return raw
     .split(',')
     .map((value) => value.trim())
@@ -41,7 +47,7 @@ const allowedOrigins = getAllowedOrigins();
 
 const io = socketIO(server, {
   cors: {
-    origin: allowedOrigins || 'http://localhost:3000',
+    origin: allowedOrigins,
     methods: ['GET', 'POST'],
     credentials: true,
   },
@@ -75,7 +81,7 @@ io.use((socket, next) => {
 // Security middleware
 app.use(helmet());
 app.use(cors({
-  origin: allowedOrigins || 'http://localhost:3000',
+  origin: allowedOrigins,
   credentials: true,
 }));
 
