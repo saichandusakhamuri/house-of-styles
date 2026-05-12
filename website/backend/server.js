@@ -37,10 +37,15 @@ const defaultAllowedOrigins = [
 const getAllowedOrigins = () => {
   const raw = (process.env.CORS_ORIGIN || '').trim();
   if (!raw) return defaultAllowedOrigins;
-  return raw
+  const configuredOrigins = raw
     .split(',')
     .map((value) => value.trim())
     .filter(Boolean);
+
+  return [...new Set([
+    ...configuredOrigins,
+    ...defaultAllowedOrigins,
+  ])];
 };
 
 const allowedOrigins = getAllowedOrigins();
