@@ -23,14 +23,9 @@ git push -u origin main
     *   **Build Command**: `npm install`
     *   **Start Command**: `npm start`
 5.  **Environment Variables** (Click "Advanced"):
-    *   `MONGODB_ATLAS_URI`: *Paste your MongoDB Atlas link here*
     *   `JWT_SECRET`: *Create a random password*
     *   `CORS_ORIGIN`: Your frontend URL, for example `https://house-of-styles-frontend.onrender.com`
-6.  The backend checks starter products and membership tiers automatically after MongoDB connects. You can also run the seed manually:
-    ```bash
-    cd website/backend
-    npm run seed
-    ```
+6.  No MongoDB setup is needed. Products and membership tiers are served from static backend files.
 
 ## Step 3: Deploy Website to Render
 1.  Click **"New +"** and select **"Static Site"**.

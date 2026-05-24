@@ -12,13 +12,13 @@ const errorHandler = (err, req, res, next) => {
   err.statusCode = err.statusCode || 500;
   err.message = err.message || 'Internal Server Error';
 
-  // Wrong MongoDB ID error
+  // Invalid database-style ID error from legacy routes.
   if (err.name === 'CastError') {
     const message = `Resource not found. Invalid: ${err.path}`;
     err = new AppError(message, 400);
   }
 
-  // Mongoose duplicate key error
+  // Duplicate key error from legacy database routes.
   if (err.code === 11000) {
     const field = Object.keys(err.keyValue)[0];
     const message = `${field} already exists. Please use a different ${field}`;

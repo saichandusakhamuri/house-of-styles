@@ -45,24 +45,136 @@ const membershipBenefits = {
 
 const storageKeys = {
   currentCustomer: "houseOfTailor-current-customer",
+  customers: "houseOfTailor-customers",
 };
+
+function normalizeMembershipStatus(status) {
+  return membershipBenefits[status] ? status : "silver";
+}
 
 function loadCurrentCustomer() {
   try {
     const value = localStorage.getItem(storageKeys.currentCustomer);
-    return value ? JSON.parse(value) : null;
+    if (!value) {
+      return null;
+    }
+
+    const customer = JSON.parse(value);
+    return {
+      ...customer,
+      membershipStatus: normalizeMembershipStatus(customer.membershipStatus),
+    };
   } catch {
     return null;
   }
 }
 
+function saveCurrentCustomer(customer) {
+  const normalizedCustomer = {
+    ...customer,
+    membershipStatus: normalizeMembershipStatus(customer.membershipStatus),
+  };
+
+  try {
+    localStorage.setItem(storageKeys.currentCustomer, JSON.stringify(normalizedCustomer));
+
+    const savedCustomers = localStorage.getItem(storageKeys.customers);
+    if (savedCustomers) {
+      const customers = JSON.parse(savedCustomers);
+      const index = customers.findIndex((item) => item.email === normalizedCustomer.email);
+
+      if (index > -1) {
+        customers[index] = {
+          ...customers[index],
+          ...normalizedCustomer,
+        };
+
+        localStorage.setItem(storageKeys.customers, JSON.stringify(customers));
+      }
+    }
+  } catch {
+    // Keep the page usable even if storage is unavailable.
+  }
+
+  return normalizedCustomer;
+}
+
 function formatMembershipLabel(status) {
-  const normalized = status || "silver";
+  const normalized = normalizeMembershipStatus(status);
   return `${normalized.charAt(0).toUpperCase()}${normalized.slice(1)} Member`;
 }
 
+function getMembershipCatalog() {
+  return Object.entries(membershipBenefits).map(([key, config]) => ({
+    key,
+    ...config,
+  }));
+}
+
+function renderMembershipTiers(activeStatus = "silver", customer = null) {
+  const container = document.getElementById("membershipTiersContainer");
+  if (!container) {
+    return;
+  }
+
+  const hasCustomer = Boolean(customer);
+  const normalizedActiveStatus = normalizeMembershipStatus(activeStatus);
+
+  container.innerHTML = getMembershipCatalog()
+    .map((tier) => {
+      const isActive = tier.key === normalizedActiveStatus;
+      const buttonLabel = !hasCustomer
+        ? "Open Store to Save"
+        : isActive
+          ? "Current Plan"
+          : "Set This Plan";
+
+      return `
+        <article class="tier-card${isActive ? " active" : ""}" data-tier-card="${tier.key}">
+          <div class="tier-card-header">
+            <span class="tier-badge">${tier.name}</span>
+            <span class="tier-current">${isActive ? "Current plan" : "Available"}</span>
+          </div>
+          <p class="tier-description">${tier.description}</p>
+          <div class="tier-discount-list" aria-label="${tier.name} discounts">
+            <div class="tier-discount-pill">
+              <span>Formal</span>
+              <strong>${tier.formal}</strong>
+            </div>
+            <div class="tier-discount-pill">
+              <span>Wedding</span>
+              <strong>${tier.wedding}</strong>
+            </div>
+            <div class="tier-discount-pill">
+              <span>Party</span>
+              <strong>${tier.party}</strong>
+            </div>
+            <div class="tier-discount-pill">
+              <span>Casual</span>
+              <strong>${tier.casual}</strong>
+            </div>
+          </div>
+          <ul class="tier-benefit-list">
+            <li>${tier.benefitOneText}</li>
+            <li>${tier.benefitTwoText}</li>
+            <li>${tier.benefitThreeText}</li>
+          </ul>
+          <button
+            class="primary-btn full tier-select-btn"
+            type="button"
+            data-tier="${tier.key}"
+            ${hasCustomer && isActive ? "disabled" : ""}
+          >
+            ${buttonLabel}
+          </button>
+        </article>
+      `;
+    })
+    .join("");
+}
+
 function updateMembershipView(status) {
-  const config = membershipBenefits[status];
+  const config = membershipBenefits[normalizeMembershipStatus(status)];
   if (!config) {
     return;
   }
@@ -87,19 +199,69 @@ function updateAccountView(customer) {
   const customerEmail = document.getElementById("customerEmail");
   const benefitsPanel = document.getElementById("vipBenefitsPanel");
 
+  if (!prompt || !customerName || !customerEmail || !benefitsPanel) {
+    return;
+  }
+
   if (!customer) {
     customerName.textContent = "Guest User";
     customerEmail.textContent = "Please sign in to unlock your VIP pricing.";
     prompt.hidden = false;
     benefitsPanel.hidden = true;
+    updateMembershipView("silver");
+    renderMembershipTiers("silver", null);
     return;
   }
 
-  customerName.textContent = customer.name || "Customer";
-  customerEmail.textContent = `${customer.email} - ${formatMembershipLabel(customer.membershipStatus)}`;
+  const normalizedCustomer = {
+    ...customer,
+    membershipStatus: normalizeMembershipStatus(customer.membershipStatus),
+  };
+
+  customerName.textContent = normalizedCustomer.name || "Customer";
+  customerEmail.textContent = `${normalizedCustomer.email} - ${formatMembershipLabel(normalizedCustomer.membershipStatus)}`;
   prompt.hidden = true;
   benefitsPanel.hidden = false;
-  updateMembershipView(customer.membershipStatus || "silver");
+  updateMembershipView(normalizedCustomer.membershipStatus);
+  renderMembershipTiers(normalizedCustomer.membershipStatus, normalizedCustomer);
 }
 
+function bindTierActions() {
+  const container = document.getElementById("membershipTiersContainer");
+  if (!container) {
+    return;
+  }
+
+  container.addEventListener("click", (event) => {
+    const button = event.target.closest(".tier-select-btn");
+    if (!button) {
+      return;
+    }
+
+    const selectedTier = button.getAttribute("data-tier");
+    if (!selectedTier) {
+      return;
+    }
+
+    const currentCustomer = loadCurrentCustomer();
+    if (!currentCustomer) {
+      window.location.href = "index.html";
+      return;
+    }
+
+    const normalizedTier = normalizeMembershipStatus(selectedTier);
+    if (currentCustomer.membershipStatus === normalizedTier) {
+      return;
+    }
+
+    const updatedCustomer = saveCurrentCustomer({
+      ...currentCustomer,
+      membershipStatus: normalizedTier,
+    });
+
+    updateAccountView(updatedCustomer);
+  });
+}
+
+bindTierActions();
 updateAccountView(loadCurrentCustomer());
