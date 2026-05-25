@@ -1,4 +1,4 @@
-const CACHE_NAME = "house-of-styles-v5";
+const CACHE_NAME = "house-of-styles-v6";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -6,6 +6,7 @@ const APP_SHELL = [
   "./custom.html",
   "./custom-options.html",
   "./styles.css",
+  "./runtime-config.js",
   "./script.js",
   "./vip.js",
   "./custom.js",

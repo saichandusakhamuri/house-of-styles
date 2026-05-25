@@ -52,6 +52,7 @@ const storageKeys = {
 };
 
 let pendingMembershipCustomer = null;
+let pendingPaymentContext = null;
 
 function normalizeEmail(email) {
   return String(email || "").trim().toLowerCase();
@@ -343,6 +344,7 @@ function closeMembershipPaymentModal() {
   if (upiPaymentForm) upiPaymentForm.hidden = true;
 
   pendingMembershipCustomer = null;
+  pendingPaymentContext = null;
   document.body.classList.remove("drawer-open");
 }
 
@@ -358,18 +360,115 @@ function setPaymentMessage(message, type = "info") {
 }
 
 function resetPaymentInputs() {
-  [
-    "cardNameInput",
-    "cardNumberInput",
-    "cardExpiryInput",
-    "cardCvvInput",
-    "upiIdInput",
-  ].forEach((id) => {
-    const input = document.getElementById(id);
-    if (input) {
-      input.value = "";
-    }
+  updateUpiPaymentDetails(null);
+}
+
+function getPaymentConfig() {
+  const config = window.HOS_CONFIG || {};
+  return {
+    merchantName: String(config.merchantName || "House of Styles").trim(),
+    merchantUpiId: String(config.merchantUpiId || config.upiId || "").trim(),
+  };
+}
+
+function createPaymentReference(prefix) {
+  return `${prefix}-${Date.now().toString(36).toUpperCase()}`;
+}
+
+function formatUpiAmount(amount) {
+  return Number(amount || 0).toFixed(2);
+}
+
+function buildUpiPaymentUrl(paymentContext = pendingPaymentContext) {
+  const { merchantName, merchantUpiId } = getPaymentConfig();
+  if (!paymentContext || !merchantUpiId) {
+    return "";
+  }
+
+  const params = new URLSearchParams({
+    pa: merchantUpiId,
+    pn: merchantName,
+    am: formatUpiAmount(paymentContext.amount),
+    cu: "INR",
+    tr: paymentContext.reference,
+    tn: paymentContext.note,
   });
+
+  return `upi://pay?${params.toString()}`;
+}
+
+function updateUpiPaymentDetails(paymentContext = pendingPaymentContext) {
+  const { merchantName, merchantUpiId } = getPaymentConfig();
+  const upiUrl = buildUpiPaymentUrl(paymentContext);
+  const merchantValue = document.getElementById("upiMerchantValue");
+  const amountValue = document.getElementById("upiAmountValue");
+  const referenceValue = document.getElementById("upiReferenceValue");
+  const openUPIAppButton = document.getElementById("openUPIAppButton");
+  const confirmUPIPaymentButton = document.getElementById("confirmUPIPaymentButton");
+  const copyUPILinkButton = document.getElementById("copyUPILinkButton");
+
+  if (merchantValue) {
+    merchantValue.textContent = merchantUpiId ? `${merchantName} (${merchantUpiId})` : "UPI ID not configured";
+  }
+
+  if (amountValue) {
+    amountValue.textContent = paymentContext ? formatPrice(paymentContext.amount) : "Rs 0";
+  }
+
+  if (referenceValue) {
+    referenceValue.textContent = paymentContext?.reference || "-";
+  }
+
+  if (openUPIAppButton) {
+    openUPIAppButton.href = upiUrl || "#";
+    openUPIAppButton.setAttribute("aria-disabled", upiUrl ? "false" : "true");
+  }
+
+  if (confirmUPIPaymentButton) {
+    confirmUPIPaymentButton.disabled = !upiUrl;
+  }
+
+  if (copyUPILinkButton) {
+    copyUPILinkButton.disabled = !upiUrl;
+  }
+
+  return upiUrl;
+}
+
+function showUpiHandoff() {
+  const stripePaymentForm = document.getElementById("stripePaymentForm");
+  const upiPaymentForm = document.getElementById("upiPaymentForm");
+  if (stripePaymentForm) stripePaymentForm.hidden = true;
+  if (upiPaymentForm) upiPaymentForm.hidden = false;
+
+  const upiUrl = updateUpiPaymentDetails();
+  if (!upiUrl) {
+    setPaymentMessage(
+      "Merchant UPI ID is not configured yet. Add it to runtime-config.js before collecting live UPI payments.",
+      "error"
+    );
+    return;
+  }
+
+  setPaymentMessage("UPI payment request is ready. Open the linked UPI app to pay the amount.");
+}
+
+async function copyUpiPaymentLink() {
+  const upiUrl = updateUpiPaymentDetails();
+  if (!upiUrl) {
+    setPaymentMessage(
+      "Merchant UPI ID is not configured yet. Add it to runtime-config.js before copying the payment link.",
+      "error"
+    );
+    return;
+  }
+
+  try {
+    await navigator.clipboard.writeText(upiUrl);
+    setPaymentMessage("UPI payment link copied.");
+  } catch {
+    setPaymentMessage("UPI payment link is ready, but this browser blocked clipboard access.", "error");
+  }
 }
 
 function openMembershipPaymentModal(customer) {
@@ -385,6 +484,14 @@ function openMembershipPaymentModal(customer) {
 
   pendingMembershipCustomer = normalizedCustomer;
   const plan = getMembershipPlan(normalizedCustomer.membershipStatus);
+  pendingPaymentContext = {
+    type: "membership",
+    amount: plan.fee,
+    reference: normalizedCustomer.membershipPaymentReference || createPaymentReference("VIP"),
+    note: `${formatMembershipLabel(normalizedCustomer.membershipStatus)} activation`,
+    customer: normalizedCustomer,
+  };
+
   const title = paymentModal.querySelector(".drawer-header h2");
   const summaryTier = document.getElementById("summaryTier");
   const summaryDuration = document.getElementById("summaryDuration");
@@ -409,7 +516,7 @@ function openMembershipPaymentModal(customer) {
   }
 
   if (stripeLabel) {
-    stripeLabel.textContent = `Pay ${formatPrice(plan.fee)} by Card`;
+    stripeLabel.textContent = "Card checkout unavailable";
   }
 
   if (upiLabel) {
@@ -422,6 +529,7 @@ function openMembershipPaymentModal(customer) {
   if (stripePaymentForm) stripePaymentForm.hidden = true;
   if (upiPaymentForm) upiPaymentForm.hidden = true;
   setPaymentMessage("Choose a payment method to activate this membership.");
+  updateUpiPaymentDetails(pendingPaymentContext);
 
   paymentModal.hidden = false;
   document.body.classList.add("drawer-open");
@@ -429,21 +537,24 @@ function openMembershipPaymentModal(customer) {
 }
 
 function completeMembershipPayment(method) {
-  if (!pendingMembershipCustomer) {
+  const paymentContext = pendingPaymentContext;
+  const customer = paymentContext?.customer || pendingMembershipCustomer;
+  if (!customer) {
     return;
   }
 
   const activatedCustomer = saveCurrentCustomer({
-    ...pendingMembershipCustomer,
+    ...customer,
     membershipPaymentStatus: "paid",
     membershipPaymentMethod: method,
+    membershipPaymentReference: paymentContext?.reference || createPaymentReference("VIP"),
     membershipPaidAt: new Date().toISOString(),
   });
 
   updateAccountView(activatedCustomer);
   const methodLabel = method === "upi" ? "UPI" : "card";
   setPaymentMessage(
-    `Payment received by ${methodLabel}. ${formatMembershipLabel(activatedCustomer.membershipStatus)} is now active.`,
+    `Payment confirmation saved by ${methodLabel}. ${formatMembershipLabel(activatedCustomer.membershipStatus)} is now active.`,
     "success"
   );
   window.setTimeout(closeMembershipPaymentModal, 1800);
@@ -495,51 +606,50 @@ function bindPaymentControls() {
   const upiPaymentButton = document.getElementById("upiPaymentBtn");
   const stripePaymentForm = document.getElementById("stripePaymentForm");
   const upiPaymentForm = document.getElementById("upiPaymentForm");
-  const submitStripePaymentButton = document.getElementById("submitStripePayment");
-  const submitUPIPaymentButton = document.getElementById("submitUPIPayment");
+  const openUPIAppButton = document.getElementById("openUPIAppButton");
+  const confirmUPIPaymentButton = document.getElementById("confirmUPIPaymentButton");
+  const copyUPILinkButton = document.getElementById("copyUPILinkButton");
 
   closePaymentModalButton?.addEventListener("click", closeMembershipPaymentModal);
 
   stripePaymentButton?.addEventListener("click", () => {
     if (stripePaymentForm) stripePaymentForm.hidden = false;
     if (upiPaymentForm) upiPaymentForm.hidden = true;
-    setPaymentMessage("Enter card details to activate your VIP membership.");
+    setPaymentMessage(
+      "Card checkout needs Stripe, Razorpay, or Cashfree connected before card details can be collected.",
+      "error"
+    );
   });
 
-  upiPaymentButton?.addEventListener("click", () => {
-    if (stripePaymentForm) {
-      stripePaymentForm.hidden = true;
-    }
-    if (upiPaymentForm) {
-      upiPaymentForm.hidden = false;
-    }
-    setPaymentMessage("Enter your UPI ID to activate your VIP membership.");
-  });
+  upiPaymentButton?.addEventListener("click", showUpiHandoff);
 
-  submitStripePaymentButton?.addEventListener("click", () => {
-    const cardName = document.getElementById("cardNameInput")?.value.trim();
-    const cardNumber = document.getElementById("cardNumberInput")?.value.replace(/\D/g, "");
-    const cardExpiry = document.getElementById("cardExpiryInput")?.value.trim();
-    const cardCvv = document.getElementById("cardCvvInput")?.value.replace(/\D/g, "");
-
-    if (!cardName || !cardNumber || cardNumber.length < 12 || !cardExpiry || !cardCvv || cardCvv.length < 3) {
-      setPaymentMessage("Please enter valid card details to continue.", "error");
+  openUPIAppButton?.addEventListener("click", (event) => {
+    const upiUrl = updateUpiPaymentDetails();
+    if (!upiUrl) {
+      event.preventDefault();
+      setPaymentMessage(
+        "Merchant UPI ID is not configured yet. Add it to runtime-config.js before collecting live UPI payments.",
+        "error"
+      );
       return;
     }
 
-    completeMembershipPayment("card");
+    setPaymentMessage("UPI app opened. Complete the payment there, then return and confirm.");
   });
 
-  submitUPIPaymentButton?.addEventListener("click", () => {
-    const upiIdInput = document.getElementById("upiIdInput");
-    if (upiIdInput && !upiIdInput.value.trim().includes("@")) {
-      upiIdInput.focus();
-      setPaymentMessage("Please enter a valid UPI ID to continue.", "error");
+  confirmUPIPaymentButton?.addEventListener("click", () => {
+    if (!updateUpiPaymentDetails()) {
+      setPaymentMessage(
+        "Merchant UPI ID is not configured yet. Add it to runtime-config.js before confirming UPI payments.",
+        "error"
+      );
       return;
     }
 
     completeMembershipPayment("upi");
   });
+
+  copyUPILinkButton?.addEventListener("click", copyUpiPaymentLink);
 }
 
 bindTierActions();

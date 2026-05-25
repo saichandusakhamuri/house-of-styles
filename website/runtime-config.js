@@ -7,6 +7,18 @@
   try {
     const host = window.location.hostname || '';
     const protocol = window.location.protocol;
+    const merchantConfig = {
+      merchantName: 'House of Styles',
+      merchantUpiId: '',
+    };
+
+    if (window.HOS_CONFIG) {
+      window.HOS_CONFIG = {
+        ...merchantConfig,
+        ...window.HOS_CONFIG,
+      };
+      return;
+    }
 
     // Keep local dev + Android WebView behavior unchanged.
     if (
@@ -15,16 +27,15 @@
       host === '127.0.0.1' ||
       host.endsWith('.local')
     ) {
+      window.HOS_CONFIG = merchantConfig;
       return;
     }
-
-    // Allow a custom override from elsewhere.
-    if (window.HOS_CONFIG) return;
 
     // Render backend service URL (update if you rename the service or add a custom domain).
     const backendOrigin = 'https://house-of-styles-backend.onrender.com';
 
     window.HOS_CONFIG = {
+      ...merchantConfig,
       apiBaseUrl: backendOrigin + '/api',
       socketUrl: backendOrigin,
     };
@@ -33,4 +44,3 @@
     console.warn('runtime-config failed:', error);
   }
 })();
-

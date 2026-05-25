@@ -16,7 +16,7 @@
       href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="styles.css?v=20260525b" />
+    <link rel="stylesheet" href="styles.css?v=20260525c" />
   </head>
   <body>
     <div class="page-shell">
@@ -305,7 +305,7 @@
           <strong id="cartTotal">Rs 0</strong>
         </div>
         <button class="primary-btn full" id="checkoutButton">Proceed to Checkout</button>
-        <p class="form-note">Checkout creates a saved order in your account before payment.</p>
+        <p class="form-note">Checkout creates an order and opens the same UPI payment screen.</p>
       </div>
     </aside>
 
@@ -583,7 +583,7 @@
           <div class="payment-options">
             <button class="payment-method-btn" id="stripePaymentBtn">
               <span class="payment-icon">💳</span>
-              <span class="payment-label">Stripe (Card/Apple Pay)</span>
+              <span class="payment-label">Card (Gateway Required)</span>
             </button>
             <button class="payment-method-btn" id="upiPaymentBtn">
               <span class="payment-icon">📱</span>
@@ -592,33 +592,29 @@
           </div>
 
           <div id="stripePaymentForm" hidden>
-            <label>
-              Cardholder name
-              <input type="text" id="cardNameInput" placeholder="Name on card" />
-            </label>
-            <label>
-              Card number
-              <input type="text" id="cardNumberInput" inputmode="numeric" placeholder="4242 4242 4242 4242" />
-            </label>
-            <div class="form-row">
-              <label>
-                Expiry
-                <input type="text" id="cardExpiryInput" placeholder="MM/YY" />
-              </label>
-              <label>
-                CVV
-                <input type="password" id="cardCvvInput" inputmode="numeric" placeholder="123" />
-              </label>
-            </div>
-            <button class="primary-btn full mt-2" id="submitStripePayment" type="button">Pay Now</button>
+            <p class="form-note payment-message">
+              Card checkout needs a live payment gateway before card details can be collected.
+            </p>
           </div>
 
           <div id="upiPaymentForm" hidden>
-            <label>
-              UPI ID
-              <input type="text" id="upiIdInput" placeholder="username@upi" required />
-            </label>
-            <button class="primary-btn full mt-2" id="submitUPIPayment" type="button">Initiate UPI Payment</button>
+            <div class="upi-detail-grid" aria-label="UPI payment details">
+              <div>
+                <span>Merchant</span>
+                <strong id="upiMerchantValue">House of Styles</strong>
+              </div>
+              <div>
+                <span>Amount</span>
+                <strong id="upiAmountValue">Rs 0</strong>
+              </div>
+              <div>
+                <span>Reference</span>
+                <strong id="upiReferenceValue">-</strong>
+              </div>
+            </div>
+            <a class="primary-btn full mt-2 upi-app-link" id="openUPIAppButton" href="#" target="_blank" rel="noopener">Open UPI App</a>
+            <button class="secondary-btn full mt-2" id="confirmUPIPaymentButton" type="button">I Have Paid</button>
+            <button class="ghost-btn full mt-2" id="copyUPILinkButton" type="button">Copy UPI Link</button>
           </div>
           <p class="form-note payment-message" id="paymentMessage">Choose a payment method to activate this membership.</p>
         </div>
@@ -646,7 +642,8 @@
     </template>
 
     <!-- Local storefront bundle -->
-    <script src="app.js?v=20260525b"></script>
-    <script src="script.js?v=20260525b"></script>
+    <script src="runtime-config.js?v=20260525c"></script>
+    <script src="app.js?v=20260525c"></script>
+    <script src="script.js?v=20260525c"></script>
   </body>
 </html>

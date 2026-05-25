@@ -1274,6 +1274,36 @@ button {
   border-color: rgba(146, 64, 14, 0.18);
 }
 
+.upi-detail-grid {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.upi-detail-grid div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.58);
+}
+
+.upi-detail-grid span {
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.upi-detail-grid strong {
+  text-align: right;
+}
+
+.upi-app-link[aria-disabled="true"] {
+  pointer-events: none;
+  opacity: 0.58;
+}
+
 .orders-history-list {
   display: grid;
   gap: 12px;
