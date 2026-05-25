@@ -508,9 +508,9 @@ function closeMembershipPaymentModal() {
     paymentModal.hidden = true;
   }
 
-  const stripePaymentForm = document.getElementById("stripePaymentForm");
+  const gatewayPaymentForm = document.getElementById("gatewayPaymentForm");
   const upiPaymentForm = document.getElementById("upiPaymentForm");
-  if (stripePaymentForm) stripePaymentForm.hidden = true;
+  if (gatewayPaymentForm) gatewayPaymentForm.hidden = true;
   if (upiPaymentForm) upiPaymentForm.hidden = true;
 
   pendingMembershipCustomer = null;
@@ -535,10 +535,26 @@ function resetPaymentInputs() {
 
 function getPaymentConfig() {
   const config = window.HOS_CONFIG || {};
+  const apiBaseUrl = String(config.apiBaseUrl || "").replace(/\/$/, "");
   return {
     merchantName: String(config.merchantName || "House of Styles").trim(),
-    merchantUpiId: String(config.merchantUpiId || config.upiId || "").trim(),
+    merchantUpiId: String(config.merchantUpiId || config.upiId || "houseofstyles@upi").trim(),
+    razorpayKeyId: String(config.razorpayKeyId || config.razorpayKey || "").trim(),
+    razorpayOrderEndpoint: String(
+      config.razorpayOrderEndpoint || (apiBaseUrl ? `${apiBaseUrl}/payments/razorpay-order` : "")
+    ).trim(),
+    razorpayVerifyEndpoint: String(
+      config.razorpayVerifyEndpoint || (apiBaseUrl ? `${apiBaseUrl}/payments/razorpay-verify` : "")
+    ).trim(),
   };
+}
+
+function formatPaymentMethodLabel(method, rail = "") {
+  if (method === "card" && rail === "debit") return "Debit Card";
+  if (method === "card") return "Credit Card";
+  if (method === "netbanking") return "Netbanking";
+  if (method === "upi") return rail === "direct" ? "Direct UPI" : "UPI Apps";
+  return "Secure Checkout";
 }
 
 function createPaymentReference(prefix) {
@@ -605,10 +621,225 @@ function updateUpiPaymentDetails(paymentContext = pendingPaymentContext) {
   return upiUrl;
 }
 
-function showUpiHandoff() {
-  const stripePaymentForm = document.getElementById("stripePaymentForm");
+function updateGatewayPaymentDetails(paymentContext = pendingPaymentContext) {
+  const gatewayMethodValue = document.getElementById("gatewayMethodValue");
+  const gatewayAmountValue = document.getElementById("gatewayAmountValue");
+  const gatewayReferenceValue = document.getElementById("gatewayReferenceValue");
+
+  if (gatewayMethodValue) {
+    gatewayMethodValue.textContent = formatPaymentMethodLabel(
+      paymentContext?.gatewayMethod,
+      paymentContext?.gatewayRail
+    );
+  }
+
+  if (gatewayAmountValue) {
+    gatewayAmountValue.textContent = paymentContext ? formatPrice(paymentContext.amount) : "Rs 0";
+  }
+
+  if (gatewayReferenceValue) {
+    gatewayReferenceValue.textContent = paymentContext?.reference || "-";
+  }
+}
+
+function showGatewayHandoff(method, rail) {
+  if (!pendingPaymentContext) {
+    return;
+  }
+
+  pendingPaymentContext.gatewayMethod = method;
+  pendingPaymentContext.gatewayRail = rail;
+
+  const gatewayPaymentForm = document.getElementById("gatewayPaymentForm");
   const upiPaymentForm = document.getElementById("upiPaymentForm");
-  if (stripePaymentForm) stripePaymentForm.hidden = true;
+  if (gatewayPaymentForm) gatewayPaymentForm.hidden = false;
+  if (upiPaymentForm) upiPaymentForm.hidden = true;
+
+  updateGatewayPaymentDetails();
+
+  const { razorpayKeyId, razorpayOrderEndpoint } = getPaymentConfig();
+  if (!razorpayKeyId && !razorpayOrderEndpoint) {
+    setPaymentMessage(
+      "Razorpay is not configured yet. Add Razorpay backend keys to enable cards, netbanking, and UPI app checkout.",
+      "error"
+    );
+    return;
+  }
+
+  setPaymentMessage(`${formatPaymentMethodLabel(method, rail)} is ready in secure checkout.`);
+}
+
+async function completeGatewayPayment(response = {}) {
+  const paymentId = response.razorpay_payment_id || "";
+  const method = pendingPaymentContext?.gatewayMethod || "gateway";
+  const rail = pendingPaymentContext?.gatewayRail || "";
+  const paymentMethod = formatPaymentMethodLabel(method, rail);
+
+  try {
+    setPaymentMessage("Verifying secure payment...");
+    await verifyGatewayPayment(response);
+
+    if (pendingPaymentContext?.type === "order") {
+      completeOrderPayment(paymentMethod, paymentId);
+      return;
+    }
+
+    completeMembershipPayment(paymentMethod, paymentId);
+  } catch (error) {
+    setPaymentMessage(error.message || "Secure payment could not be verified. Please contact support.", "error");
+  }
+}
+
+function getGatewayDisplayConfig(method, rail) {
+  return {
+    config: {
+      display: {
+        blocks: {
+          preferred: {
+            name: formatPaymentMethodLabel(method, rail),
+            instruments: [{ method }],
+          },
+        },
+        sequence: ["block.preferred"],
+        preferences: {
+          show_default_blocks: true,
+        },
+      },
+    },
+  };
+}
+
+async function createGatewayOrder() {
+  const { razorpayOrderEndpoint } = getPaymentConfig();
+  if (!razorpayOrderEndpoint) {
+    throw new Error("Razorpay order endpoint is not configured.");
+  }
+
+  const response = await fetch(razorpayOrderEndpoint, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      amount: Math.round(Number(pendingPaymentContext.amount || 0) * 100),
+      currency: "INR",
+      receipt: pendingPaymentContext.reference,
+      notes: {
+        reference: pendingPaymentContext.reference,
+        type: pendingPaymentContext.type,
+        method: formatPaymentMethodLabel(
+          pendingPaymentContext.gatewayMethod,
+          pendingPaymentContext.gatewayRail
+        ),
+      },
+    }),
+  });
+
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok || !body.success) {
+    throw new Error(body.message || "Razorpay order could not be created.");
+  }
+
+  return body;
+}
+
+async function verifyGatewayPayment(response = {}) {
+  const { razorpayVerifyEndpoint } = getPaymentConfig();
+  if (!razorpayVerifyEndpoint) {
+    throw new Error("Razorpay verification endpoint is not configured.");
+  }
+
+  const verifyResponse = await fetch(razorpayVerifyEndpoint, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      razorpay_order_id: response.razorpay_order_id,
+      razorpay_payment_id: response.razorpay_payment_id,
+      razorpay_signature: response.razorpay_signature,
+      reference: pendingPaymentContext?.reference,
+      type: pendingPaymentContext?.type,
+      amount: Math.round(Number(pendingPaymentContext?.amount || 0) * 100),
+    }),
+  });
+
+  const body = await verifyResponse.json().catch(() => ({}));
+  if (!verifyResponse.ok || !body.success) {
+    throw new Error(body.message || "Razorpay payment verification failed.");
+  }
+
+  return body;
+}
+
+async function openGatewayCheckout() {
+  const { merchantName, razorpayKeyId, razorpayOrderEndpoint } = getPaymentConfig();
+
+  if (!pendingPaymentContext) {
+    return;
+  }
+
+  if (!razorpayKeyId && !razorpayOrderEndpoint) {
+    setPaymentMessage(
+      "Razorpay is not configured yet. Add Razorpay keys on the backend to open secure checkout.",
+      "error"
+    );
+    return;
+  }
+
+  if (!window.Razorpay) {
+    setPaymentMessage("Secure checkout could not load. Check the network connection and try again.", "error");
+    return;
+  }
+
+  try {
+    setPaymentMessage("Creating secure payment order...");
+    const orderResponse = await createGatewayOrder();
+    const order = orderResponse.order || {};
+    const customer = normalizeCustomer(state.currentCustomer || pendingPaymentContext.customer);
+    const method = pendingPaymentContext.gatewayMethod || "card";
+    const description = pendingPaymentContext.note || "House of Styles payment";
+    const checkout = new window.Razorpay({
+      key: orderResponse.keyId || razorpayKeyId,
+      amount: order.amount,
+      currency: order.currency || "INR",
+      order_id: order.id,
+      name: merchantName,
+      description,
+      prefill: {
+        name: customer?.name || "",
+        email: customer?.email || "",
+      },
+      notes: {
+        reference: pendingPaymentContext.reference,
+        type: pendingPaymentContext.type,
+        method: formatPaymentMethodLabel(method, pendingPaymentContext.gatewayRail),
+      },
+      ...getGatewayDisplayConfig(method, pendingPaymentContext.gatewayRail),
+      handler: completeGatewayPayment,
+      modal: {
+        ondismiss() {
+          setPaymentMessage("Secure checkout closed before payment was confirmed.", "error");
+        },
+      },
+    });
+
+    checkout.open();
+    setPaymentMessage("Secure checkout opened. Complete the payment there.");
+  } catch (error) {
+    setPaymentMessage(error.message || "Secure checkout could not start.", "error");
+  }
+}
+
+function showUpiHandoff() {
+  if (pendingPaymentContext) {
+    pendingPaymentContext.gatewayMethod = "upi";
+    pendingPaymentContext.gatewayRail = "direct";
+  }
+
+  const gatewayPaymentForm = document.getElementById("gatewayPaymentForm");
+  const upiPaymentForm = document.getElementById("upiPaymentForm");
+  if (gatewayPaymentForm) gatewayPaymentForm.hidden = true;
   if (upiPaymentForm) upiPaymentForm.hidden = false;
 
   const upiUrl = updateUpiPaymentDetails();
@@ -680,7 +911,6 @@ function openMembershipPaymentModal(customer) {
 
   const title = paymentModal.querySelector(".drawer-header h2");
   const summary = ensureMembershipPaymentSummary(paymentModal);
-  const stripeLabel = paymentModal.querySelector("#stripePaymentBtn .payment-label");
   const upiLabel = paymentModal.querySelector("#upiPaymentBtn .payment-label");
 
   if (title) {
@@ -692,25 +922,22 @@ function openMembershipPaymentModal(customer) {
       <h3>${formatMembershipLabel(normalizedCustomer.membershipStatus)}</h3>
       <p><strong>Subscription fee:</strong> ${formatPrice(plan.fee)}</p>
       <p><strong>Reference:</strong> ${pendingPaymentContext.reference}</p>
-      <p class="form-note">UPI opens the customer payment app with the amount and reference filled in.</p>
+      <p class="form-note">Choose card, netbanking, UPI apps, or direct UPI to continue.</p>
     `;
   }
 
-  if (stripeLabel) {
-    stripeLabel.textContent = "Card checkout unavailable";
-  }
-
   if (upiLabel) {
-    upiLabel.textContent = `Pay ${formatPrice(plan.fee)} by UPI`;
+    upiLabel.textContent = "Direct UPI";
   }
 
-  const stripePaymentForm = document.getElementById("stripePaymentForm");
+  const gatewayPaymentForm = document.getElementById("gatewayPaymentForm");
   const upiPaymentForm = document.getElementById("upiPaymentForm");
   resetPaymentInputs();
-  if (stripePaymentForm) stripePaymentForm.hidden = true;
+  if (gatewayPaymentForm) gatewayPaymentForm.hidden = true;
   if (upiPaymentForm) upiPaymentForm.hidden = true;
   setPaymentMessage("Choose a payment method to activate this membership.");
   updateUpiPaymentDetails(pendingPaymentContext);
+  updateGatewayPaymentDetails(pendingPaymentContext);
 
   closeAccountModal();
   paymentModal.hidden = false;
@@ -718,7 +945,7 @@ function openMembershipPaymentModal(customer) {
   return true;
 }
 
-function completeMembershipPayment(method) {
+function completeMembershipPayment(method, transactionId = "") {
   const paymentContext = pendingPaymentContext;
   const customer = paymentContext?.customer || pendingMembershipCustomer;
   if (!customer) {
@@ -730,12 +957,12 @@ function completeMembershipPayment(method) {
     membershipPaymentStatus: "paid",
     membershipPaymentMethod: method,
     membershipPaymentReference: paymentContext?.reference || createPaymentReference("VIP"),
+    membershipTransactionId: transactionId,
     membershipPaidAt: new Date().toISOString(),
   });
 
-  const methodLabel = method === "upi" ? "UPI" : "card";
   setPaymentMessage(
-    `Payment confirmation saved by ${methodLabel}. ${formatMembershipLabel(activatedCustomer.membershipStatus)} is now active.`,
+    `Payment confirmation saved by ${method}. ${formatMembershipLabel(activatedCustomer.membershipStatus)} is now active.`,
     "success"
   );
   window.setTimeout(() => {
@@ -976,7 +1203,7 @@ function renderOrders() {
       ${
         isPaid
           ? ""
-          : '<button class="secondary-btn full mt-2 pay-order-btn" type="button">Pay with UPI</button>'
+          : '<button class="secondary-btn full mt-2 pay-order-btn" type="button">Pay Now</button>'
       }
     `;
 
@@ -1046,9 +1273,8 @@ function openOrderPaymentModal(order) {
 
   const title = paymentModal.querySelector(".drawer-header h2");
   const summary = ensureMembershipPaymentSummary(paymentModal);
-  const stripeLabel = paymentModal.querySelector("#stripePaymentBtn .payment-label");
   const upiLabel = paymentModal.querySelector("#upiPaymentBtn .payment-label");
-  const stripePaymentForm = document.getElementById("stripePaymentForm");
+  const gatewayPaymentForm = document.getElementById("gatewayPaymentForm");
   const upiPaymentForm = document.getElementById("upiPaymentForm");
 
   if (title) {
@@ -1061,29 +1287,26 @@ function openOrderPaymentModal(order) {
       <p><strong>Items:</strong> ${order.items.length}</p>
       <p><strong>Amount:</strong> ${formatPrice(order.total)}</p>
       <p><strong>Reference:</strong> ${order.paymentReference}</p>
-      <p class="form-note">UPI opens the customer payment app with the order amount filled in.</p>
+      <p class="form-note">Choose card, netbanking, UPI apps, or direct UPI to continue.</p>
     `;
   }
 
-  if (stripeLabel) {
-    stripeLabel.textContent = "Card checkout unavailable";
-  }
-
   if (upiLabel) {
-    upiLabel.textContent = `Pay ${formatPrice(order.total)} by UPI`;
+    upiLabel.textContent = "Direct UPI";
   }
 
-  if (stripePaymentForm) stripePaymentForm.hidden = true;
+  if (gatewayPaymentForm) gatewayPaymentForm.hidden = true;
   if (upiPaymentForm) upiPaymentForm.hidden = true;
-  setPaymentMessage("Choose UPI to pay for this order.");
+  setPaymentMessage("Choose a payment method for this order.");
   updateUpiPaymentDetails(pendingPaymentContext);
+  updateGatewayPaymentDetails(pendingPaymentContext);
 
   closeAccountModal();
   paymentModal.hidden = false;
   document.body.classList.add("drawer-open");
 }
 
-function completeOrderPayment(method) {
+function completeOrderPayment(method, transactionId = "") {
   if (pendingPaymentContext?.type !== "order") {
     return;
   }
@@ -1096,6 +1319,7 @@ function completeOrderPayment(method) {
           status: "payment_confirmed",
           paymentStatus: "paid",
           paymentMethod: method,
+          transactionId,
           paidAt: new Date().toISOString(),
         }
       : order
@@ -1728,11 +1952,13 @@ function bindProfileActions() {
 function bindMembershipPaymentControls() {
   const paymentModal = document.getElementById("paymentModal");
   const closePaymentModalButton = document.getElementById("closePaymentModal");
-  const stripePaymentButton = document.getElementById("stripePaymentBtn");
+  const creditCardPaymentButton = document.getElementById("creditCardPaymentBtn");
+  const debitCardPaymentButton = document.getElementById("debitCardPaymentBtn");
+  const netbankingPaymentButton = document.getElementById("netbankingPaymentBtn");
+  const gatewayUPIPaymentButton = document.getElementById("gatewayUPIPaymentBtn");
   const upiPaymentButton = document.getElementById("upiPaymentBtn");
-  const stripePaymentForm = document.getElementById("stripePaymentForm");
-  const upiPaymentForm = document.getElementById("upiPaymentForm");
   const openUPIAppButton = document.getElementById("openUPIAppButton");
+  const openGatewayCheckoutButton = document.getElementById("openGatewayCheckoutButton");
   const confirmUPIPaymentButton = document.getElementById("confirmUPIPaymentButton");
   const copyUPILinkButton = document.getElementById("copyUPILinkButton");
 
@@ -1742,16 +1968,12 @@ function bindMembershipPaymentControls() {
 
   closePaymentModalButton?.addEventListener("click", closeMembershipPaymentModal);
 
-  stripePaymentButton?.addEventListener("click", () => {
-    if (stripePaymentForm) stripePaymentForm.hidden = false;
-    if (upiPaymentForm) upiPaymentForm.hidden = true;
-    setPaymentMessage(
-      "Card checkout needs Stripe, Razorpay, or Cashfree connected before card details can be collected.",
-      "error"
-    );
-  });
-
+  creditCardPaymentButton?.addEventListener("click", () => showGatewayHandoff("card", "credit"));
+  debitCardPaymentButton?.addEventListener("click", () => showGatewayHandoff("card", "debit"));
+  netbankingPaymentButton?.addEventListener("click", () => showGatewayHandoff("netbanking"));
+  gatewayUPIPaymentButton?.addEventListener("click", () => showGatewayHandoff("upi", "apps"));
   upiPaymentButton?.addEventListener("click", showUpiHandoff);
+  openGatewayCheckoutButton?.addEventListener("click", openGatewayCheckout);
 
   openUPIAppButton?.addEventListener("click", (event) => {
     const upiUrl = updateUpiPaymentDetails();
@@ -1777,11 +1999,11 @@ function bindMembershipPaymentControls() {
     }
 
     if (pendingPaymentContext?.type === "order") {
-      completeOrderPayment("upi");
+      completeOrderPayment("Direct UPI");
       return;
     }
 
-    completeMembershipPayment("upi");
+    completeMembershipPayment("Direct UPI");
   });
 
   copyUPILinkButton?.addEventListener("click", copyUpiPaymentLink);

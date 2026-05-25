@@ -16,7 +16,7 @@
       href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="styles.css?v=20260525c" />
+    <link rel="stylesheet" href="styles.css?v=20260525d" />
   </head>
   <body>
     <div class="page-shell">
@@ -165,20 +165,45 @@
             </div>
           </div>
           <div class="payment-options">
-            <button class="payment-method-btn" id="stripePaymentBtn">
+            <button class="payment-method-btn" id="creditCardPaymentBtn" type="button">
               <span class="payment-icon">💳</span>
-              <span class="payment-label">Card (Gateway Required)</span>
+              <span class="payment-label">Credit Card</span>
             </button>
-            <button class="payment-method-btn" id="upiPaymentBtn">
+            <button class="payment-method-btn" id="debitCardPaymentBtn" type="button">
+              <span class="payment-icon">💳</span>
+              <span class="payment-label">Debit Card</span>
+            </button>
+            <button class="payment-method-btn" id="netbankingPaymentBtn" type="button">
+              <span class="payment-icon">🏦</span>
+              <span class="payment-label">Netbanking</span>
+            </button>
+            <button class="payment-method-btn" id="gatewayUPIPaymentBtn" type="button">
+              <span class="payment-icon">📲</span>
+              <span class="payment-label">UPI Apps</span>
+            </button>
+            <button class="payment-method-btn" id="upiPaymentBtn" type="button">
               <span class="payment-icon">📱</span>
-              <span class="payment-label">UPI (GPay/PhonePe)</span>
+              <span class="payment-label">Direct UPI</span>
             </button>
           </div>
 
-          <div id="stripePaymentForm" hidden>
-            <p class="form-note payment-message">
-              Card checkout needs a live payment gateway before card details can be collected.
-            </p>
+          <div id="gatewayPaymentForm" hidden>
+            <div class="upi-detail-grid" aria-label="Gateway payment details">
+              <div>
+                <span>Method</span>
+                <strong id="gatewayMethodValue">Secure Checkout</strong>
+              </div>
+              <div>
+                <span>Amount</span>
+                <strong id="gatewayAmountValue">Rs 0</strong>
+              </div>
+              <div>
+                <span>Reference</span>
+                <strong id="gatewayReferenceValue">-</strong>
+              </div>
+            </div>
+            <button class="primary-btn full mt-2" id="openGatewayCheckoutButton" type="button">Open Secure Checkout</button>
+            <p class="form-note">Card, netbanking, and UPI app details are entered only inside the payment gateway screen.</p>
           </div>
 
           <div id="upiPaymentForm" hidden>
@@ -206,8 +231,9 @@
     </div>
 
     <!-- Local page bundle -->
-    <script src="runtime-config.js?v=20260525c"></script>
-    <script src="app.js?v=20260525c"></script>
-    <script src="vip.js?v=20260525c"></script>
+    <script src="runtime-config.js?v=20260525d"></script>
+    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+    <script src="app.js?v=20260525d"></script>
+    <script src="vip.js?v=20260525d"></script>
   </body>
 </html>

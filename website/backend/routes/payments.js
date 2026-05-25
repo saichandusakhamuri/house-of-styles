@@ -1,112 +1,143 @@
 const express = require('express');
-const Stripe = require('stripe');
-const { authenticate } = require('../middleware/auth');
-const Order = require('../models/Order');
+const crypto = require('crypto');
+const https = require('https');
 const { AppError } = require('../middleware/errorHandler');
 
 const router = express.Router();
-let stripeClient = null;
 
-const getStripeClient = () => {
-  if (!process.env.STRIPE_SECRET_KEY) {
-    throw new AppError('Stripe is not configured. Set STRIPE_SECRET_KEY before taking card payments.', 503);
+const getRazorpayCredentials = () => {
+  const keyId = process.env.RAZORPAY_KEY_ID;
+  const keySecret = process.env.RAZORPAY_KEY_SECRET;
+
+  if (!keyId || !keySecret) {
+    throw new AppError('Razorpay is not configured. Set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET.', 503);
   }
 
-  if (!stripeClient) {
-    stripeClient = new Stripe(process.env.STRIPE_SECRET_KEY);
-  }
-
-  return stripeClient;
+  return { keyId, keySecret };
 };
 
-/**
- * POST /api/payments/create-intent
- * Create a Stripe Payment Intent
- */
-router.post('/create-intent', authenticate, async (req, res) => {
-  const { orderId } = req.body;
+const createRazorpayOrder = (payload) =>
+  new Promise((resolve, reject) => {
+    let credentials;
+    try {
+      credentials = getRazorpayCredentials();
+    } catch (error) {
+      reject(error);
+      return;
+    }
 
-  const order = await Order.findById(orderId);
-  if (!order) {
-    throw new AppError('Order not found', 404);
-  }
+    const { keyId, keySecret } = credentials;
+    const body = JSON.stringify(payload);
+    const request = https.request(
+      {
+        hostname: 'api.razorpay.com',
+        path: '/v1/orders',
+        method: 'POST',
+        headers: {
+          Authorization: `Basic ${Buffer.from(`${keyId}:${keySecret}`).toString('base64')}`,
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(body),
+        },
+      },
+      (response) => {
+        let responseBody = '';
+        response.on('data', (chunk) => {
+          responseBody += chunk;
+        });
+        response.on('end', () => {
+          let parsedBody;
+          try {
+            parsedBody = JSON.parse(responseBody);
+          } catch {
+            parsedBody = { message: responseBody };
+          }
 
-  if (order.userId.toString() !== req.userId) {
-    throw new AppError('Access denied', 403);
-  }
+          if (response.statusCode >= 400) {
+            reject(new AppError(parsedBody?.error?.description || 'Razorpay order creation failed.', response.statusCode));
+            return;
+          }
 
-  // Create a PaymentIntent with the order amount and currency
-  const stripe = getStripeClient();
-  const paymentIntent = await stripe.paymentIntents.create({
-    amount: Math.round(order.totalAmount * 100), // Stripe expects amount in cents
-    currency: 'usd',
-    automatic_payment_methods: {
-      enabled: true,
-    },
-    metadata: {
-      orderId: order._id.toString(),
-      userId: req.userId,
-    },
+          resolve(parsedBody);
+        });
+      }
+    );
+
+    request.on('error', (error) => {
+      reject(new AppError(error.message || 'Razorpay order request failed.', 502));
+    });
+
+    request.write(body);
+    request.end();
   });
 
-  res.json({
-    clientSecret: paymentIntent.client_secret,
-  });
-});
+const verifyRazorpaySignature = ({ orderId, paymentId, signature }) => {
+  const { keySecret } = getRazorpayCredentials();
+  const expectedSignature = crypto
+    .createHmac('sha256', keySecret)
+    .update(`${orderId}|${paymentId}`)
+    .digest('hex');
 
-/**
- * POST /api/payments/upi-initiate
- * Initiate a UPI payment
- */
-router.post('/upi-initiate', authenticate, async (req, res) => {
-  const { orderId } = req.body;
+  const expectedBuffer = Buffer.from(expectedSignature, 'hex');
+  const receivedBuffer = Buffer.from(signature || '', 'hex');
 
-  const order = await Order.findById(orderId);
-  if (!order) {
-    throw new AppError('Order not found', 404);
+  return (
+    expectedBuffer.length === receivedBuffer.length &&
+    crypto.timingSafeEqual(expectedBuffer, receivedBuffer)
+  );
+};
+
+router.post('/razorpay-order', async (req, res) => {
+  const amount = Number(req.body.amount);
+  const currency = String(req.body.currency || 'INR').toUpperCase();
+  const receipt = String(req.body.receipt || `hos_${Date.now()}`).slice(0, 40);
+  const notes = req.body.notes && typeof req.body.notes === 'object' ? req.body.notes : {};
+
+  if (!Number.isFinite(amount) || amount <= 0) {
+    throw new AppError('A valid payment amount is required.', 400);
   }
 
-  if (order.userId.toString() !== req.userId) {
-    throw new AppError('Access denied', 403);
+  if (currency !== 'INR') {
+    throw new AppError('Only INR payments are supported for this storefront.', 400);
   }
 
-  throw new AppError('UPI payment provider is not configured yet.', 503);
-});
-
-/**
- * POST /api/payments/confirm
- * Confirm payment success and update order
- */
-router.post('/confirm', authenticate, async (req, res) => {
-  const { orderId, paymentMethod, transactionId } = req.body;
-
-  const order = await Order.findById(orderId);
-  if (!order) {
-    throw new AppError('Order not found', 404);
-  }
-
-  if (order.userId.toString() !== req.userId) {
-    throw new AppError('Access denied', 403);
-  }
-
-  order.paymentMethod = paymentMethod;
-  order.paymentStatus = 'completed';
-  order.transactionId = transactionId;
-  order.orderStatus = 'confirmed';
-
-  await order.save();
-
-  // Notify via Socket.IO
-  const io = req.app.get('io');
-  io.to(`user-${order.userId}`).emit('orderConfirmed', {
-    orderId: order._id,
-    orderNumber: order.orderNumber
+  const order = await createRazorpayOrder({
+    amount: Math.round(amount),
+    currency,
+    receipt,
+    notes,
   });
 
   res.json({
     success: true,
-    message: 'Payment confirmed and order updated',
-    data: order
+    keyId: process.env.RAZORPAY_KEY_ID,
+    order,
+  });
+});
+
+router.post('/razorpay-verify', async (req, res) => {
+  const orderId = String(req.body.razorpay_order_id || '').trim();
+  const paymentId = String(req.body.razorpay_payment_id || '').trim();
+  const signature = String(req.body.razorpay_signature || '').trim();
+
+  if (!orderId || !paymentId || !signature) {
+    throw new AppError('Razorpay payment verification details are missing.', 400);
+  }
+
+  if (!verifyRazorpaySignature({ orderId, paymentId, signature })) {
+    throw new AppError('Razorpay payment signature could not be verified.', 400);
+  }
+
+  res.json({
+    success: true,
+    orderId,
+    paymentId,
+  });
+});
+
+router.all('*', (req, res) => {
+  res.status(501).json({
+    success: false,
+    message: 'Only Razorpay order creation and verification are enabled in the static/no-Mongo build.',
   });
 });
 

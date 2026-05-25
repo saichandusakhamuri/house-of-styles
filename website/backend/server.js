@@ -11,6 +11,7 @@ const compression = require('compression');
 const { logger } = require('./config/logger');
 const errorHandler = require('./middleware/errorHandler');
 const productRoutes = require('./routes/products');
+const paymentRoutes = require('./routes/payments');
 const { staticMembershipTiers } = require('./data/staticMembershipTiers');
 
 const app = express();
@@ -64,6 +65,7 @@ app.get('/api/health', (req, res) => {
 });
 
 app.use('/api/products', productRoutes);
+app.use('/api/payments', paymentRoutes);
 
 app.get('/api/memberships', (req, res) => {
   res.json({
@@ -73,7 +75,7 @@ app.get('/api/memberships', (req, res) => {
   });
 });
 
-app.all(['/api/auth/*', '/api/orders/*', '/api/custom-orders/*', '/api/styles/*', '/api/users/*', '/api/payments/*'], (req, res) => {
+app.all(['/api/auth/*', '/api/orders/*', '/api/custom-orders/*', '/api/styles/*', '/api/users/*'], (req, res) => {
   res.status(501).json({
     success: false,
     message: 'This endpoint is disabled in the Tomcat/static catalog build. Products are served without MongoDB.',

@@ -1,7 +1,7 @@
 /* Runtime config for production deployments (Render, etc.)
  *
  * This file is loaded before api-client.js / notifications.js.
- * It is intentionally static (no build step) and only activates on non-local hosts.
+ * It is intentionally static (no build step) and adds payment defaults on every host.
  */
 (function () {
   try {
@@ -9,7 +9,10 @@
     const protocol = window.location.protocol;
     const merchantConfig = {
       merchantName: 'House of Styles',
-      merchantUpiId: '',
+      merchantUpiId: 'houseofstyles@upi',
+      razorpayKeyId: '',
+      razorpayOrderEndpoint: '',
+      razorpayVerifyEndpoint: '',
     };
 
     if (window.HOS_CONFIG) {
@@ -38,6 +41,8 @@
       ...merchantConfig,
       apiBaseUrl: backendOrigin + '/api',
       socketUrl: backendOrigin,
+      razorpayOrderEndpoint: backendOrigin + '/api/payments/razorpay-order',
+      razorpayVerifyEndpoint: backendOrigin + '/api/payments/razorpay-verify',
     };
   } catch (error) {
     // Never block page load if config fails.
