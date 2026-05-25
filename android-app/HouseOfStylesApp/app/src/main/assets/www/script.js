@@ -171,6 +171,11 @@ const favoritesCount = document.getElementById("favoritesCount");
 const cartTotal = document.getElementById("cartTotal");
 const overlay = document.getElementById("overlay");
 const cartDrawer = document.getElementById("cartDrawer");
+const favoritesDrawer = document.getElementById("favoritesDrawer");
+const favoriteItems = document.getElementById("favoriteItems");
+const favoritesTotal = document.getElementById("favoritesTotal");
+const closeFavoritesButton = document.getElementById("closeFavoritesButton");
+const browseFavoritesButton = document.getElementById("browseFavoritesButton");
 const accountModal = document.getElementById("accountModal");
 const authModal = document.getElementById("authModal");
 
@@ -367,6 +372,19 @@ function renderProfileSummary(customer = state.currentCustomer) {
 function normalizeSavedCustomers() {
   state.customers = state.customers.map(normalizeCustomer).filter(Boolean);
   saveStorage(storageKeys.customers, state.customers);
+}
+
+function hydrateCustomerState() {
+  const savedCustomer = normalizeCustomer(loadStorage(storageKeys.currentCustomer, null));
+
+  if (savedCustomer) {
+    syncCurrentCustomer(savedCustomer);
+    return;
+  }
+
+  state.currentCustomer = null;
+  updateCustomerHeader();
+  refreshVipLinks();
 }
 
 function updateCustomerHeader() {
@@ -652,6 +670,15 @@ function toggleFavorite(productId) {
 
   saveStorage(storageKeys.favorites, state.favorites);
   renderProducts();
+  renderFavoriteItems();
+  updateCounters();
+}
+
+function removeFavorite(productId) {
+  state.favorites = state.favorites.filter((item) => item !== productId);
+  saveStorage(storageKeys.favorites, state.favorites);
+  renderProducts();
+  renderFavoriteItems();
   updateCounters();
 }
 
@@ -703,20 +730,98 @@ function updateCounters() {
 
   cartCount.textContent = String(totalItems);
   favoritesCount.textContent = String(state.favorites.length);
+  if (favoritesTotal) {
+    favoritesTotal.textContent = `${state.favorites.length} item${state.favorites.length === 1 ? "" : "s"}`;
+  }
+}
+
+function syncDrawerOverlay() {
+  const isCartOpen = cartDrawer.classList.contains("open");
+  const isFavoritesOpen = favoritesDrawer?.classList.contains("open");
+  overlay.hidden = !isCartOpen && !isFavoritesOpen;
+  document.body.classList.toggle("drawer-open", isCartOpen || isFavoritesOpen);
 }
 
 function openCart() {
+  closeFavorites();
   cartDrawer.classList.add("open");
-  overlay.hidden = false;
   cartDrawer.setAttribute("aria-hidden", "false");
-  document.body.classList.add("drawer-open");
+  syncDrawerOverlay();
 }
 
 function closeCart() {
   cartDrawer.classList.remove("open");
-  overlay.hidden = true;
   cartDrawer.setAttribute("aria-hidden", "true");
-  document.body.classList.remove("drawer-open");
+  syncDrawerOverlay();
+}
+
+function renderFavoriteItems() {
+  if (!favoriteItems) {
+    return;
+  }
+
+  favoriteItems.innerHTML = "";
+
+  const savedProducts = state.favorites
+    .map((productId) => products.find((product) => product.id === productId))
+    .filter(Boolean);
+
+  if (!savedProducts.length) {
+    const empty = document.createElement("div");
+    empty.className = "cart-item";
+    empty.innerHTML =
+      "<div><h3>No saved styles yet</h3><p>Tap Fav on any product to keep it here.</p></div>";
+    favoriteItems.appendChild(empty);
+    return;
+  }
+
+  savedProducts.forEach((product) => {
+    const favoriteItem = document.createElement("article");
+    favoriteItem.className = "cart-item";
+    favoriteItem.innerHTML = `
+      <div>
+        <h3>${product.name}</h3>
+        <p>${product.category} - ${product.audience}</p>
+        <small>${formatPrice(product.price)}</small>
+      </div>
+      <div class="cart-item-actions">
+        <button class="primary-btn small add-favorite-cart-btn" type="button">Add to Cart</button>
+        <button class="ghost-btn small remove-favorite-btn" type="button">Remove</button>
+      </div>
+    `;
+
+    favoriteItem.querySelector(".add-favorite-cart-btn").addEventListener("click", () => {
+      addToCart(product.id);
+    });
+
+    favoriteItem.querySelector(".remove-favorite-btn").addEventListener("click", () => {
+      removeFavorite(product.id);
+    });
+
+    favoriteItems.appendChild(favoriteItem);
+  });
+}
+
+function openFavorites() {
+  if (!favoritesDrawer) {
+    return;
+  }
+
+  closeCart();
+  renderFavoriteItems();
+  favoritesDrawer.classList.add("open");
+  favoritesDrawer.setAttribute("aria-hidden", "false");
+  syncDrawerOverlay();
+}
+
+function closeFavorites() {
+  if (!favoritesDrawer) {
+    return;
+  }
+
+  favoritesDrawer.classList.remove("open");
+  favoritesDrawer.setAttribute("aria-hidden", "true");
+  syncDrawerOverlay();
 }
 
 function openAccountModal(title, text) {
@@ -969,7 +1074,16 @@ function bindCustomStudio() {
 function bindCartControls() {
   document.getElementById("cartButton").addEventListener("click", openCart);
   document.getElementById("closeCartButton").addEventListener("click", closeCart);
-  overlay.addEventListener("click", closeCart);
+  document.getElementById("favoritesButton")?.addEventListener("click", openFavorites);
+  closeFavoritesButton?.addEventListener("click", closeFavorites);
+  browseFavoritesButton?.addEventListener("click", () => {
+    closeFavorites();
+    document.getElementById("shop")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+  overlay.addEventListener("click", () => {
+    closeCart();
+    closeFavorites();
+  });
 
   document.getElementById("checkoutButton").addEventListener("click", () => {
     if (!state.cart.length) {
@@ -1129,7 +1243,7 @@ function bindProfileActions() {
 
       if (action === "favorites") {
         closeAccountModal();
-        document.getElementById("favoritesButton")?.click();
+        openFavorites();
       }
 
       if (action === "orders") {
@@ -1188,16 +1302,13 @@ function bindMembershipPaymentControls() {
 function init() {
   closeAccountModal();
   closeAuthModal();
+  closeFavorites();
   normalizeSavedCustomers();
-  state.currentCustomer = normalizeCustomer(state.currentCustomer);
-  if (state.currentCustomer) {
-    syncCurrentCustomer(state.currentCustomer);
-  } else {
-    updateCustomerHeader();
-  }
+  hydrateCustomerState();
   refreshVipLinks();
   renderProducts();
   renderCart();
+  renderFavoriteItems();
   updateCounters();
   bindFilters();
   bindShopDropdown();
@@ -1209,6 +1320,8 @@ function init() {
   bindLoginForms();
   bindProfileActions();
   bindMembershipPaymentControls();
+  window.addEventListener("pageshow", hydrateCustomerState);
+  window.addEventListener("focus", hydrateCustomerState);
 }
 
 init();
