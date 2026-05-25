@@ -2,6 +2,7 @@ const membershipBenefits = {
   silver: {
     name: "Silver Member",
     description: "Entry VIP access with shopping discounts and early previews.",
+    fee: 0,
     formal: "10% OFF",
     wedding: "12% OFF",
     party: "8% OFF",
@@ -16,6 +17,7 @@ const membershipBenefits = {
   gold: {
     name: "Gold Member",
     description: "Higher savings, stronger tailoring perks, and premium shopping support.",
+    fee: 59,
     formal: "15% OFF",
     wedding: "18% OFF",
     party: "14% OFF",
@@ -30,6 +32,7 @@ const membershipBenefits = {
   platinum: {
     name: "Platinum Member",
     description: "Maximum fashion privileges with the best discounts and elite service.",
+    fee: 109,
     formal: "20% OFF",
     wedding: "25% OFF",
     party: "18% OFF",
@@ -48,60 +51,158 @@ const storageKeys = {
   customers: "houseOfTailor-customers",
 };
 
+let pendingMembershipCustomer = null;
+
+function normalizeEmail(email) {
+  return String(email || "").trim().toLowerCase();
+}
+
 function normalizeMembershipStatus(status) {
-  return membershipBenefits[status] ? status : "silver";
+  const value = String(status || "").trim().toLowerCase();
+
+  if (value.includes("platinum")) return "platinum";
+  if (value.includes("gold")) return "gold";
+  if (value.includes("silver")) return "silver";
+
+  return "silver";
 }
 
-function loadCurrentCustomer() {
-  try {
-    const value = localStorage.getItem(storageKeys.currentCustomer);
-    if (!value) {
-      return null;
-    }
-
-    const customer = JSON.parse(value);
-    return {
-      ...customer,
-      membershipStatus: normalizeMembershipStatus(customer.membershipStatus),
-    };
-  } catch {
-    return null;
-  }
+function getMembershipPlan(status) {
+  return membershipBenefits[normalizeMembershipStatus(status)];
 }
 
-function saveCurrentCustomer(customer) {
-  const normalizedCustomer = {
-    ...customer,
-    membershipStatus: normalizeMembershipStatus(customer.membershipStatus),
-  };
-
-  try {
-    localStorage.setItem(storageKeys.currentCustomer, JSON.stringify(normalizedCustomer));
-
-    const savedCustomers = localStorage.getItem(storageKeys.customers);
-    if (savedCustomers) {
-      const customers = JSON.parse(savedCustomers);
-      const index = customers.findIndex((item) => item.email === normalizedCustomer.email);
-
-      if (index > -1) {
-        customers[index] = {
-          ...customers[index],
-          ...normalizedCustomer,
-        };
-
-        localStorage.setItem(storageKeys.customers, JSON.stringify(customers));
-      }
-    }
-  } catch {
-    // Keep the page usable even if storage is unavailable.
+function getMembershipPaymentStatus(status, paymentStatus) {
+  const plan = getMembershipPlan(status);
+  if (!plan.fee) {
+    return "paid";
   }
 
-  return normalizedCustomer;
+  return paymentStatus === "paid" ? "paid" : "pending";
+}
+
+function formatPrice(amount) {
+  return new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    maximumFractionDigits: 0,
+  })
+    .format(amount)
+    .replace(/\u20B9/g, "Rs ");
 }
 
 function formatMembershipLabel(status) {
   const normalized = normalizeMembershipStatus(status);
   return `${normalized.charAt(0).toUpperCase()}${normalized.slice(1)} Member`;
+}
+
+function formatMembershipSummary(customer) {
+  const normalizedCustomer = normalizeCustomer(customer);
+  if (!normalizedCustomer) {
+    return "No membership selected";
+  }
+
+  if (normalizedCustomer.membershipPaymentStatus === "pending") {
+    return `${formatMembershipLabel(normalizedCustomer.membershipStatus)} - payment pending`;
+  }
+
+  return `${formatMembershipLabel(normalizedCustomer.membershipStatus)} - active`;
+}
+
+function membershipRequiresPayment(customer) {
+  const normalizedCustomer = normalizeCustomer(customer);
+  return Boolean(
+    normalizedCustomer &&
+      getMembershipPlan(normalizedCustomer.membershipStatus).fee > 0 &&
+      normalizedCustomer.membershipPaymentStatus !== "paid"
+  );
+}
+
+function normalizeCustomer(customer) {
+  if (!customer) {
+    return null;
+  }
+
+  const membershipStatus = normalizeMembershipStatus(customer.membershipStatus);
+  const plan = getMembershipPlan(membershipStatus);
+
+  return {
+    ...customer,
+    email: normalizeEmail(customer.email),
+    membershipStatus,
+    membershipPaymentStatus: getMembershipPaymentStatus(
+      membershipStatus,
+      customer.membershipPaymentStatus
+    ),
+    membershipFee: plan.fee,
+  };
+}
+
+function loadCustomerFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  const hasCustomerHint = params.has("email") || params.has("membershipStatus") || params.has("name");
+
+  if (!hasCustomerHint) {
+    return null;
+  }
+
+  return normalizeCustomer({
+    name: params.get("name") || "Customer",
+    email: params.get("email") || "",
+    membershipStatus: params.get("membershipStatus") || "silver",
+    membershipPaymentStatus: params.get("membershipPaymentStatus") || "pending",
+  });
+}
+
+function loadCurrentCustomer() {
+  const urlCustomer = loadCustomerFromUrl();
+
+  try {
+    const value = localStorage.getItem(storageKeys.currentCustomer);
+    const storedCustomer = value ? normalizeCustomer(JSON.parse(value)) : null;
+
+    if (urlCustomer && (!storedCustomer || storedCustomer.email === urlCustomer.email)) {
+      return saveCurrentCustomer({
+        ...storedCustomer,
+        ...urlCustomer,
+      });
+    }
+
+    return storedCustomer;
+  } catch {
+    return urlCustomer;
+  }
+}
+
+function saveCurrentCustomer(customer) {
+  const normalizedCustomer = normalizeCustomer(customer);
+  if (!normalizedCustomer) {
+    return null;
+  }
+
+  try {
+    localStorage.setItem(storageKeys.currentCustomer, JSON.stringify(normalizedCustomer));
+
+    const savedCustomers = localStorage.getItem(storageKeys.customers);
+    const customers = savedCustomers ? JSON.parse(savedCustomers) : [];
+    const index = customers.findIndex(
+      (item) => normalizeEmail(item.email) === normalizedCustomer.email
+    );
+
+    if (index > -1) {
+      customers[index] = {
+        ...customers[index],
+        ...normalizedCustomer,
+      };
+    } else {
+      customers.unshift(normalizedCustomer);
+    }
+
+    localStorage.setItem(storageKeys.customers, JSON.stringify(customers));
+  } catch {
+    // Keep the page usable even if storage is unavailable.
+  }
+
+  return normalizedCustomer;
 }
 
 function getMembershipCatalog() {
@@ -117,24 +218,32 @@ function renderMembershipTiers(activeStatus = "silver", customer = null) {
     return;
   }
 
-  const hasCustomer = Boolean(customer);
+  const normalizedCustomer = normalizeCustomer(customer);
+  const hasCustomer = Boolean(normalizedCustomer);
   const normalizedActiveStatus = normalizeMembershipStatus(activeStatus);
 
   container.innerHTML = getMembershipCatalog()
     .map((tier) => {
       const isActive = tier.key === normalizedActiveStatus;
+      const isPendingPayment =
+        hasCustomer && isActive && normalizedCustomer.membershipPaymentStatus === "pending";
       const buttonLabel = !hasCustomer
         ? "Open Store to Save"
-        : isActive
-          ? "Current Plan"
-          : "Set This Plan";
+        : isPendingPayment
+          ? `Pay ${formatPrice(tier.fee)}`
+          : isActive
+            ? "Current Plan"
+            : tier.fee
+              ? `Choose ${formatPrice(tier.fee)}`
+              : "Choose Free";
 
       return `
         <article class="tier-card${isActive ? " active" : ""}" data-tier-card="${tier.key}">
           <div class="tier-card-header">
             <span class="tier-badge">${tier.name}</span>
-            <span class="tier-current">${isActive ? "Current plan" : "Available"}</span>
+            <span class="tier-current">${isPendingPayment ? "Payment pending" : isActive ? "Current plan" : "Available"}</span>
           </div>
+          <p class="tier-price">${tier.fee ? formatPrice(tier.fee) : "Free"}</p>
           <p class="tier-description">${tier.description}</p>
           <div class="tier-discount-list" aria-label="${tier.name} discounts">
             <div class="tier-discount-pill">
@@ -163,7 +272,7 @@ function renderMembershipTiers(activeStatus = "silver", customer = null) {
             class="primary-btn full tier-select-btn"
             type="button"
             data-tier="${tier.key}"
-            ${hasCustomer && isActive ? "disabled" : ""}
+            ${hasCustomer && isActive && !isPendingPayment ? "disabled" : ""}
           >
             ${buttonLabel}
           </button>
@@ -203,9 +312,10 @@ function updateAccountView(customer) {
     return;
   }
 
-  if (!customer) {
+  const normalizedCustomer = normalizeCustomer(customer);
+  if (!normalizedCustomer) {
     customerName.textContent = "Guest User";
-    customerEmail.textContent = "Please sign in to unlock your VIP pricing.";
+    customerEmail.textContent = "Please sign in to choose a VIP membership.";
     prompt.hidden = false;
     benefitsPanel.hidden = true;
     updateMembershipView("silver");
@@ -213,17 +323,97 @@ function updateAccountView(customer) {
     return;
   }
 
-  const normalizedCustomer = {
-    ...customer,
-    membershipStatus: normalizeMembershipStatus(customer.membershipStatus),
-  };
-
   customerName.textContent = normalizedCustomer.name || "Customer";
-  customerEmail.textContent = `${normalizedCustomer.email} - ${formatMembershipLabel(normalizedCustomer.membershipStatus)}`;
+  customerEmail.textContent = `${normalizedCustomer.email} - ${formatMembershipSummary(normalizedCustomer)}`;
   prompt.hidden = true;
   benefitsPanel.hidden = false;
   updateMembershipView(normalizedCustomer.membershipStatus);
   renderMembershipTiers(normalizedCustomer.membershipStatus, normalizedCustomer);
+}
+
+function closeMembershipPaymentModal() {
+  const paymentModal = document.getElementById("paymentModal");
+  if (paymentModal) {
+    paymentModal.hidden = true;
+  }
+
+  const stripePaymentForm = document.getElementById("stripePaymentForm");
+  const upiPaymentForm = document.getElementById("upiPaymentForm");
+  if (stripePaymentForm) stripePaymentForm.hidden = true;
+  if (upiPaymentForm) upiPaymentForm.hidden = true;
+
+  pendingMembershipCustomer = null;
+  document.body.classList.remove("drawer-open");
+}
+
+function openMembershipPaymentModal(customer) {
+  const normalizedCustomer = normalizeCustomer(customer);
+  if (!membershipRequiresPayment(normalizedCustomer)) {
+    return false;
+  }
+
+  const paymentModal = document.getElementById("paymentModal");
+  if (!paymentModal) {
+    return false;
+  }
+
+  pendingMembershipCustomer = normalizedCustomer;
+  const plan = getMembershipPlan(normalizedCustomer.membershipStatus);
+  const title = paymentModal.querySelector(".drawer-header h2");
+  const summaryTier = document.getElementById("summaryTier");
+  const summaryDuration = document.getElementById("summaryDuration");
+  const summaryAmount = document.getElementById("summaryAmount");
+  const stripeLabel = paymentModal.querySelector("#stripePaymentBtn .payment-label");
+  const upiLabel = paymentModal.querySelector("#upiPaymentBtn .payment-label");
+
+  if (title) {
+    title.textContent = "Activate VIP Membership";
+  }
+
+  if (summaryTier) {
+    summaryTier.textContent = formatMembershipLabel(normalizedCustomer.membershipStatus);
+  }
+
+  if (summaryDuration) {
+    summaryDuration.textContent = "One-time activation";
+  }
+
+  if (summaryAmount) {
+    summaryAmount.textContent = formatPrice(plan.fee);
+  }
+
+  if (stripeLabel) {
+    stripeLabel.textContent = `Pay ${formatPrice(plan.fee)} by Card`;
+  }
+
+  if (upiLabel) {
+    upiLabel.textContent = `Pay ${formatPrice(plan.fee)} by UPI`;
+  }
+
+  const stripePaymentForm = document.getElementById("stripePaymentForm");
+  const upiPaymentForm = document.getElementById("upiPaymentForm");
+  if (stripePaymentForm) stripePaymentForm.hidden = true;
+  if (upiPaymentForm) upiPaymentForm.hidden = true;
+
+  paymentModal.hidden = false;
+  document.body.classList.add("drawer-open");
+  return true;
+}
+
+function completeMembershipPayment(method) {
+  if (!pendingMembershipCustomer) {
+    return;
+  }
+
+  const activatedCustomer = saveCurrentCustomer({
+    ...pendingMembershipCustomer,
+    membershipPaymentStatus: "paid",
+    membershipPaymentMethod: method,
+    membershipPaidAt: new Date().toISOString(),
+  });
+
+  closeMembershipPaymentModal();
+  updateAccountView(activatedCustomer);
 }
 
 function bindTierActions() {
@@ -250,18 +440,52 @@ function bindTierActions() {
     }
 
     const normalizedTier = normalizeMembershipStatus(selectedTier);
-    if (currentCustomer.membershipStatus === normalizedTier) {
-      return;
-    }
-
     const updatedCustomer = saveCurrentCustomer({
       ...currentCustomer,
       membershipStatus: normalizedTier,
+      membershipPaymentStatus: getMembershipPaymentStatus(normalizedTier, "pending"),
+      membershipPaidAt: normalizedTier === "silver" ? new Date().toISOString() : "",
+      membershipPaymentMethod: normalizedTier === "silver" ? "free" : "",
     });
 
     updateAccountView(updatedCustomer);
+
+    if (membershipRequiresPayment(updatedCustomer)) {
+      openMembershipPaymentModal(updatedCustomer);
+    }
+  });
+}
+
+function bindPaymentControls() {
+  const closePaymentModalButton = document.getElementById("closePaymentModal");
+  const stripePaymentButton = document.getElementById("stripePaymentBtn");
+  const upiPaymentButton = document.getElementById("upiPaymentBtn");
+  const upiPaymentForm = document.getElementById("upiPaymentForm");
+  const submitUPIPaymentButton = document.getElementById("submitUPIPayment");
+
+  closePaymentModalButton?.addEventListener("click", closeMembershipPaymentModal);
+
+  stripePaymentButton?.addEventListener("click", () => {
+    completeMembershipPayment("card");
+  });
+
+  upiPaymentButton?.addEventListener("click", () => {
+    if (upiPaymentForm) {
+      upiPaymentForm.hidden = false;
+    }
+  });
+
+  submitUPIPaymentButton?.addEventListener("click", () => {
+    const upiIdInput = document.getElementById("upiIdInput");
+    if (upiIdInput && !upiIdInput.value.trim()) {
+      upiIdInput.focus();
+      return;
+    }
+
+    completeMembershipPayment("upi");
   });
 }
 
 bindTierActions();
+bindPaymentControls();
 updateAccountView(loadCurrentCustomer());

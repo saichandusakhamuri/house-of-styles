@@ -187,6 +187,15 @@ function saveStorage(key, value) {
   localStorage.setItem(key, JSON.stringify(value));
 }
 
+function normalizeEmail(email) {
+  return String(email || "").trim().toLowerCase();
+}
+
+function findCustomerByEmail(email) {
+  const normalizedEmail = normalizeEmail(email);
+  return state.customers.find((customer) => normalizeEmail(customer.email) === normalizedEmail);
+}
+
 function formatPrice(amount) {
   return new Intl.NumberFormat("en-IN", {
     style: "currency",
@@ -195,6 +204,328 @@ function formatPrice(amount) {
   })
     .format(amount)
     .replace(/\u20B9/g, "Rs ");
+}
+
+const membershipLabels = {
+  silver: "Silver Member",
+  gold: "Gold Member",
+  platinum: "Platinum Member",
+};
+
+const membershipPlans = {
+  silver: {
+    fee: 0,
+    paymentLabel: "Free",
+  },
+  gold: {
+    fee: 59,
+    paymentLabel: "Rs 59 activation",
+  },
+  platinum: {
+    fee: 109,
+    paymentLabel: "Rs 109 activation",
+  },
+};
+
+let pendingMembershipCustomer = null;
+
+function normalizeMembershipStatus(status) {
+  const value = String(status || "").trim().toLowerCase();
+
+  if (value.includes("platinum")) {
+    return "platinum";
+  }
+
+  if (value.includes("gold")) {
+    return "gold";
+  }
+
+  if (value.includes("silver")) {
+    return "silver";
+  }
+
+  return "silver";
+}
+
+function getMembershipPlan(status) {
+  return membershipPlans[normalizeMembershipStatus(status)];
+}
+
+function getMembershipPaymentStatus(status, paymentStatus) {
+  const plan = getMembershipPlan(status);
+  if (!plan.fee) {
+    return "paid";
+  }
+
+  return paymentStatus === "paid" ? "paid" : "pending";
+}
+
+function formatMembershipLabel(status) {
+  return membershipLabels[normalizeMembershipStatus(status)];
+}
+
+function formatMembershipSummary(customer) {
+  const normalizedCustomer = normalizeCustomer(customer);
+  if (!normalizedCustomer) {
+    return "No membership selected";
+  }
+
+  if (normalizedCustomer.membershipPaymentStatus === "pending") {
+    return `${formatMembershipLabel(normalizedCustomer.membershipStatus)} - payment pending`;
+  }
+
+  return `${formatMembershipLabel(normalizedCustomer.membershipStatus)} - active`;
+}
+
+function membershipRequiresPayment(customer) {
+  const normalizedCustomer = normalizeCustomer(customer);
+  return Boolean(
+    normalizedCustomer &&
+      getMembershipPlan(normalizedCustomer.membershipStatus).fee > 0 &&
+      normalizedCustomer.membershipPaymentStatus !== "paid"
+  );
+}
+
+function normalizeCustomer(customer) {
+  if (!customer) {
+    return null;
+  }
+
+  const membershipStatus = normalizeMembershipStatus(customer.membershipStatus);
+  const plan = getMembershipPlan(membershipStatus);
+
+  return {
+    ...customer,
+    email: normalizeEmail(customer.email),
+    membershipStatus,
+    membershipPaymentStatus: getMembershipPaymentStatus(
+      membershipStatus,
+      customer.membershipPaymentStatus
+    ),
+    membershipFee: plan.fee,
+  };
+}
+
+function syncCurrentCustomer(customer) {
+  const normalizedCustomer = normalizeCustomer(customer);
+  if (!normalizedCustomer) {
+    state.currentCustomer = null;
+    localStorage.removeItem(storageKeys.currentCustomer);
+    updateCustomerHeader();
+    refreshVipLinks();
+    return null;
+  }
+
+  state.currentCustomer = normalizedCustomer;
+  saveStorage(storageKeys.currentCustomer, normalizedCustomer);
+
+  const existingIndex = state.customers.findIndex(
+    (item) => normalizeEmail(item.email) === normalizedCustomer.email
+  );
+  if (existingIndex > -1) {
+    state.customers[existingIndex] = {
+      ...state.customers[existingIndex],
+      ...normalizedCustomer,
+    };
+  } else {
+    state.customers.unshift(normalizedCustomer);
+  }
+
+  saveStorage(storageKeys.customers, state.customers);
+  updateCustomerHeader();
+  refreshVipLinks();
+  return normalizedCustomer;
+}
+
+function getFirstName(name) {
+  return String(name || "Customer").trim().split(/\s+/)[0] || "Customer";
+}
+
+function renderProfileSummary(customer = state.currentCustomer) {
+  const profileSummary = document.getElementById("profileSummary");
+  if (!profileSummary) {
+    return;
+  }
+
+  if (!customer) {
+    profileSummary.innerHTML = "";
+    return;
+  }
+
+  profileSummary.innerHTML = `
+    <article>
+      <strong>${customer.name || "Customer"}</strong>
+      <span>${customer.email || "No email saved"}</span>
+    </article>
+    <article>
+      <strong>${formatMembershipSummary(customer)}</strong>
+      <span>${customer.stylePreference || customer.interest || "Style preferences saved"}</span>
+    </article>
+  `;
+}
+
+function normalizeSavedCustomers() {
+  state.customers = state.customers.map(normalizeCustomer).filter(Boolean);
+  saveStorage(storageKeys.customers, state.customers);
+}
+
+function updateCustomerHeader() {
+  const authButton = document.getElementById("openAuthModal");
+  if (!authButton) {
+    return;
+  }
+
+  const currentCustomer = normalizeCustomer(state.currentCustomer);
+  if (!currentCustomer) {
+    authButton.textContent = "Login / Sign Up";
+    authButton.setAttribute("aria-label", "Login or sign up");
+    renderProfileSummary(null);
+    return;
+  }
+
+  authButton.textContent = `Hi, ${getFirstName(currentCustomer.name)}`;
+  authButton.setAttribute(
+    "aria-label",
+    `Open account for ${currentCustomer.name || "customer"}, ${formatMembershipSummary(currentCustomer)}`
+  );
+  renderProfileSummary(currentCustomer);
+}
+
+function openCustomerAccount() {
+  const currentCustomer = normalizeCustomer(state.currentCustomer);
+  if (!currentCustomer) {
+    openAuthModal();
+    return;
+  }
+
+  openAccountModal(
+    "Your Profile",
+    `${currentCustomer.name || "Customer"}, you are signed in with ${formatMembershipSummary(currentCustomer)}.`
+  );
+  renderProfileSummary(currentCustomer);
+}
+
+function buildVipUrl(customer = state.currentCustomer) {
+  const currentCustomer = normalizeCustomer(customer);
+  if (!currentCustomer) {
+    return "vip.html";
+  }
+
+  const params = new URLSearchParams({
+    name: currentCustomer.name || "",
+    email: currentCustomer.email || "",
+    membershipStatus: normalizeMembershipStatus(currentCustomer.membershipStatus),
+    membershipPaymentStatus: currentCustomer.membershipPaymentStatus,
+    membershipFee: String(currentCustomer.membershipFee || 0),
+  });
+
+  return `vip.html?${params.toString()}`;
+}
+
+function refreshVipLinks() {
+  document.querySelectorAll('a[href^="vip.html"]').forEach((link) => {
+    link.setAttribute("href", buildVipUrl());
+  });
+}
+
+function closeMembershipPaymentModal() {
+  const paymentModal = document.getElementById("paymentModal");
+  if (paymentModal) {
+    paymentModal.hidden = true;
+  }
+
+  const stripePaymentForm = document.getElementById("stripePaymentForm");
+  const upiPaymentForm = document.getElementById("upiPaymentForm");
+  if (stripePaymentForm) stripePaymentForm.hidden = true;
+  if (upiPaymentForm) upiPaymentForm.hidden = true;
+
+  pendingMembershipCustomer = null;
+  document.body.classList.remove("drawer-open");
+}
+
+function ensureMembershipPaymentSummary(paymentModal) {
+  const body = paymentModal?.querySelector(".modal-body");
+  if (!body) {
+    return null;
+  }
+
+  let summary = body.querySelector(".membership-payment-summary");
+  if (!summary) {
+    summary = document.createElement("div");
+    summary.className = "upgrade-summary membership-payment-summary";
+    body.insertBefore(summary, body.firstChild);
+  }
+
+  return summary;
+}
+
+function openMembershipPaymentModal(customer) {
+  const normalizedCustomer = normalizeCustomer(customer);
+  if (!membershipRequiresPayment(normalizedCustomer)) {
+    return false;
+  }
+
+  const paymentModal = document.getElementById("paymentModal");
+  if (!paymentModal) {
+    return false;
+  }
+
+  pendingMembershipCustomer = normalizedCustomer;
+  const plan = getMembershipPlan(normalizedCustomer.membershipStatus);
+  const title = paymentModal.querySelector(".drawer-header h2");
+  const summary = ensureMembershipPaymentSummary(paymentModal);
+  const stripeLabel = paymentModal.querySelector("#stripePaymentBtn .payment-label");
+  const upiLabel = paymentModal.querySelector("#upiPaymentBtn .payment-label");
+
+  if (title) {
+    title.textContent = "Activate VIP Membership";
+  }
+
+  if (summary) {
+    summary.innerHTML = `
+      <h3>${formatMembershipLabel(normalizedCustomer.membershipStatus)}</h3>
+      <p><strong>Subscription fee:</strong> ${formatPrice(plan.fee)}</p>
+      <p class="form-note">This local payment marks the membership active on this device.</p>
+    `;
+  }
+
+  if (stripeLabel) {
+    stripeLabel.textContent = `Pay ${formatPrice(plan.fee)} by Card`;
+  }
+
+  if (upiLabel) {
+    upiLabel.textContent = `Pay ${formatPrice(plan.fee)} by UPI`;
+  }
+
+  const stripePaymentForm = document.getElementById("stripePaymentForm");
+  const upiPaymentForm = document.getElementById("upiPaymentForm");
+  if (stripePaymentForm) stripePaymentForm.hidden = true;
+  if (upiPaymentForm) upiPaymentForm.hidden = true;
+
+  closeAccountModal();
+  paymentModal.hidden = false;
+  document.body.classList.add("drawer-open");
+  return true;
+}
+
+function completeMembershipPayment(method) {
+  if (!pendingMembershipCustomer) {
+    return;
+  }
+
+  const activatedCustomer = syncCurrentCustomer({
+    ...pendingMembershipCustomer,
+    membershipPaymentStatus: "paid",
+    membershipPaymentMethod: method,
+    membershipPaidAt: new Date().toISOString(),
+  });
+
+  closeMembershipPaymentModal();
+  openAccountModal(
+    "Membership Active",
+    `${activatedCustomer.name || "Customer"}, your ${formatMembershipLabel(activatedCustomer.membershipStatus)} is active.`
+  );
+  renderProfileSummary(activatedCustomer);
 }
 
 function getFilteredProducts() {
@@ -410,6 +741,27 @@ function closeAuthModal() {
   document.body.classList.remove("drawer-open");
 }
 
+function showAuthForm(formName) {
+  const targetForm =
+    formName === "forgot"
+      ? "forgotPasswordForm"
+      : formName === "login"
+        ? "customerLoginForm"
+        : "customerSignupForm";
+
+  document.querySelectorAll(".auth-form").forEach((form) => {
+    form.classList.toggle("active", form.id === targetForm);
+  });
+
+  document.querySelectorAll(".auth-tab").forEach((tab) => {
+    const tabName = tab.getAttribute("data-auth-tab");
+    tab.classList.toggle(
+      "active",
+      formName === "signup" ? tabName === "signup" : tabName === "login"
+    );
+  });
+}
+
 function applyCategoryFilter(category) {
   state.selectedCategory = category;
   setActiveButton("[data-category]", category, "category");
@@ -536,13 +888,29 @@ function bindForms() {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
     const entry = Object.fromEntries(formData.entries());
+    entry.email = normalizeEmail(entry.email);
     entry.createdAt = new Date().toISOString();
     state.vipLeads.unshift(entry);
     saveStorage(storageKeys.vip, state.vipLeads);
+
+    const matchingCustomer =
+      normalizeEmail(state.currentCustomer?.email) === entry.email
+        ? state.currentCustomer
+        : state.customers.find((customer) => normalizeEmail(customer.email) === entry.email);
+
+    if (matchingCustomer) {
+      syncCurrentCustomer({
+        ...matchingCustomer,
+        interest: entry.interest,
+      });
+    }
+
     updateCounters();
     event.currentTarget.reset();
     document.getElementById("vipMessage").textContent =
-      "VIP interest saved. In the production version, this can sync to Firebase and your CRM.";
+      matchingCustomer
+        ? `VIP interest saved for your ${formatMembershipLabel(matchingCustomer.membershipStatus)} profile.`
+        : "VIP interest saved. Create or log in to a customer account to activate a membership plan.";
   });
 }
 
@@ -628,7 +996,7 @@ function bindScrollButtons() {
 }
 
 function bindAuthModal() {
-  document.getElementById("openAuthModal").addEventListener("click", openAuthModal);
+  document.getElementById("openAuthModal").addEventListener("click", openCustomerAccount);
   document.getElementById("closeAuthModal").addEventListener("click", closeAuthModal);
 
   authModal.addEventListener("click", (event) => {
@@ -639,15 +1007,7 @@ function bindAuthModal() {
 
   document.querySelectorAll(".auth-tab").forEach((button) => {
     button.addEventListener("click", () => {
-      const tab = button.getAttribute("data-auth-tab");
-      document
-        .querySelectorAll(".auth-tab")
-        .forEach((item) => item.classList.toggle("active", item === button));
-      document
-        .querySelectorAll(".auth-form")
-        .forEach((form) =>
-          form.classList.toggle("active", form.id === (tab === "signup" ? "customerSignupForm" : "customerLoginForm"))
-        );
+      showAuthForm(button.getAttribute("data-auth-tab") || "signup");
     });
   });
 }
@@ -657,43 +1017,56 @@ function bindLoginForms() {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
     const entry = Object.fromEntries(formData.entries());
+    entry.email = normalizeEmail(entry.email);
+
+    const existingCustomer = findCustomerByEmail(entry.email);
+    if (existingCustomer) {
+      document.getElementById("customerSignupMessage").textContent =
+        "An account already exists for this email. Please log in instead.";
+      showAuthForm("login");
+      document.querySelector('#customerLoginForm input[name="email"]').value = entry.email;
+      return;
+    }
+
     entry.createdAt = new Date().toISOString();
     entry.id = `cust-${Date.now()}`;
-    state.customers.unshift(entry);
-    saveStorage(storageKeys.customers, state.customers);
-    state.currentCustomer = entry;
-    saveStorage(storageKeys.currentCustomer, state.currentCustomer);
+    entry.membershipStatus = normalizeMembershipStatus(entry.membershipStatus);
+    const savedCustomer = syncCurrentCustomer(entry);
     document.getElementById("customerSignupMessage").textContent =
-      `Customer account created for ${entry.name}.`;
+      `Customer account created for ${savedCustomer.name}.`;
     event.currentTarget.reset();
     closeAuthModal();
-    openAccountModal(
-      "Account Created",
-      `${entry.name}, your customer account has been created in the prototype database and kept on this device. Next we can connect this to a real online database.`
-    );
+
+    if (membershipRequiresPayment(savedCustomer)) {
+      openMembershipPaymentModal(savedCustomer);
+    } else {
+      openAccountModal(
+        "Account Created",
+        `${savedCustomer.name}, your ${formatMembershipLabel(savedCustomer.membershipStatus)} profile is active.`
+      );
+      renderProfileSummary(savedCustomer);
+    }
   });
 
   document.getElementById("customerLoginForm").addEventListener("submit", (event) => {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
-    const email = formData.get("email");
+    const email = normalizeEmail(formData.get("email"));
     const password = formData.get("password");
-    const customer = state.customers.find(
-      (item) => item.email === email && item.password === password
-    );
+    const customer = findCustomerByEmail(email);
 
-    if (!customer) {
+    if (!customer || customer.password !== password) {
       document.getElementById("customerLoginMessage").textContent =
         "No matching customer account found. Check your email and password.";
       return;
     }
 
-    state.currentCustomer = customer;
-    saveStorage(storageKeys.currentCustomer, state.currentCustomer);
+    const savedCustomer = syncCurrentCustomer(customer);
     event.currentTarget.reset();
     closeAuthModal();
     document.getElementById("customerLoginMessage").textContent =
-      `${customer.name}, login successful.`;
+      `${savedCustomer.name}, login successful.`;
+    openCustomerAccount();
   });
 
   document.getElementById("closeAccountModal").addEventListener("click", closeAccountModal);
@@ -703,11 +1076,126 @@ function bindLoginForms() {
       closeAccountModal();
     }
   });
+
+  document.getElementById("forgotPasswordButton")?.addEventListener("click", () => {
+    const loginEmail = document.querySelector('#customerLoginForm input[name="email"]')?.value || "";
+    const resetEmail = document.querySelector('#forgotPasswordForm input[name="email"]');
+    if (resetEmail) {
+      resetEmail.value = loginEmail;
+    }
+    document.getElementById("passwordResetMessage").textContent =
+      "Enter your local account email to check whether it exists on this device.";
+    showAuthForm("forgot");
+  });
+
+  document.getElementById("backToLoginButton")?.addEventListener("click", () => {
+    showAuthForm("login");
+  });
+
+  document.getElementById("forgotPasswordForm")?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    const email = normalizeEmail(formData.get("email"));
+    const customer = findCustomerByEmail(email);
+    const message = document.getElementById("passwordResetMessage");
+
+    if (!customer) {
+      message.textContent = "No local account was found for that email.";
+      return;
+    }
+
+    message.textContent =
+      "Account found. Since this prototype runs locally, please use the password created on this device.";
+  });
+}
+
+function bindProfileActions() {
+  document.querySelectorAll("[data-profile-action]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const action = button.getAttribute("data-profile-action");
+
+      if (action === "cart") {
+        closeAccountModal();
+        openCart();
+      }
+
+      if (action === "membership") {
+        window.location.href = buildVipUrl();
+      }
+
+      if (action === "custom") {
+        window.location.href = "custom.html";
+      }
+
+      if (action === "favorites") {
+        closeAccountModal();
+        document.getElementById("favoritesButton")?.click();
+      }
+
+      if (action === "orders") {
+        document.getElementById("accountModalText").textContent =
+          "Order history will appear here after checkout is connected.";
+      }
+
+      if (action === "notifications") {
+        document.getElementById("accountModalText").textContent =
+          "Email, SMS, and VIP offer preferences are ready for the next backend connection.";
+      }
+
+      if (action === "logout") {
+        syncCurrentCustomer(null);
+        closeAccountModal();
+      }
+    });
+  });
+}
+
+function bindMembershipPaymentControls() {
+  const paymentModal = document.getElementById("paymentModal");
+  const closePaymentModalButton = document.getElementById("closePaymentModal");
+  const stripePaymentButton = document.getElementById("stripePaymentBtn");
+  const upiPaymentButton = document.getElementById("upiPaymentBtn");
+  const upiPaymentForm = document.getElementById("upiPaymentForm");
+  const submitUPIPaymentButton = document.getElementById("submitUPIPayment");
+
+  if (!paymentModal) {
+    return;
+  }
+
+  closePaymentModalButton?.addEventListener("click", closeMembershipPaymentModal);
+
+  stripePaymentButton?.addEventListener("click", () => {
+    completeMembershipPayment("card");
+  });
+
+  upiPaymentButton?.addEventListener("click", () => {
+    if (upiPaymentForm) {
+      upiPaymentForm.hidden = false;
+    }
+  });
+
+  submitUPIPaymentButton?.addEventListener("click", () => {
+    const upiIdInput = document.getElementById("upiIdInput");
+    if (upiIdInput && !upiIdInput.value.trim()) {
+      upiIdInput.focus();
+      return;
+    }
+
+    completeMembershipPayment("upi");
+  });
 }
 
 function init() {
   closeAccountModal();
   closeAuthModal();
+  normalizeSavedCustomers();
+  state.currentCustomer = normalizeCustomer(state.currentCustomer);
+  if (state.currentCustomer) {
+    syncCurrentCustomer(state.currentCustomer);
+  } else {
+    updateCustomerHeader();
+  }
+  refreshVipLinks();
   renderProducts();
   renderCart();
   updateCounters();
@@ -719,6 +1207,8 @@ function init() {
   bindScrollButtons();
   bindAuthModal();
   bindLoginForms();
+  bindProfileActions();
+  bindMembershipPaymentControls();
 }
 
 init();
