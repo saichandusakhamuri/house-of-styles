@@ -16,7 +16,7 @@
       href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="styles.css?v=20260525" />
+    <link rel="stylesheet" href="styles.css?v=20260525b" />
   </head>
   <body>
     <div class="page-shell">
@@ -176,11 +176,25 @@
           </div>
 
           <div id="stripePaymentForm" hidden>
-            <div id="payment-element">
-              <!-- Stripe.js injects the Payment Element here -->
+            <label>
+              Cardholder name
+              <input type="text" id="cardNameInput" placeholder="Name on card" />
+            </label>
+            <label>
+              Card number
+              <input type="text" id="cardNumberInput" inputmode="numeric" placeholder="4242 4242 4242 4242" />
+            </label>
+            <div class="form-row">
+              <label>
+                Expiry
+                <input type="text" id="cardExpiryInput" placeholder="MM/YY" />
+              </label>
+              <label>
+                CVV
+                <input type="password" id="cardCvvInput" inputmode="numeric" placeholder="123" />
+              </label>
             </div>
-            <button class="primary-btn full mt-2" id="submitStripePayment">Pay Now</button>
-            <div id="payment-message" hidden></div>
+            <button class="primary-btn full mt-2" id="submitStripePayment" type="button">Pay Now</button>
           </div>
 
           <div id="upiPaymentForm" hidden>
@@ -188,15 +202,15 @@
               UPI ID
               <input type="text" id="upiIdInput" placeholder="username@upi" required />
             </label>
-            <button class="primary-btn full mt-2" id="submitUPIPayment">Initiate UPI Payment</button>
-            <p class="form-note">A request will be sent to your UPI app.</p>
+            <button class="primary-btn full mt-2" id="submitUPIPayment" type="button">Initiate UPI Payment</button>
           </div>
+          <p class="form-note payment-message" id="paymentMessage">Choose a payment method to activate this membership.</p>
         </div>
       </div>
     </div>
 
     <!-- Local page bundle -->
-    <script src="app.js?v=20260525"></script>
-    <script src="vip.js?v=20260525"></script>
+    <script src="app.js?v=20260525b"></script>
+    <script src="vip.js?v=20260525b"></script>
   </body>
 </html>

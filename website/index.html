@@ -16,7 +16,7 @@
       href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="styles.css?v=20260525" />
+    <link rel="stylesheet" href="styles.css?v=20260525b" />
   </head>
   <body>
     <div class="page-shell">
@@ -476,6 +476,83 @@
             <button class="ghost-btn full mt-2" id="backToProfileBtn">Back to Profile</button>
           </div>
 
+          <div id="notificationsSection" hidden>
+            <div class="account-panel-header">
+              <div>
+                <p class="filter-label">Notification Preferences</p>
+                <p class="hero-text">Choose what House of Styles should send you on this device.</p>
+              </div>
+            </div>
+
+            <form id="notificationPreferencesForm" class="preferences-form">
+              <div class="preferences-group">
+                <p class="filter-label">Send me updates about</p>
+                <label class="preference-toggle">
+                  <span>
+                    <strong>Order updates</strong>
+                    <small>Payment, confirmation, dispatch, and delivery changes.</small>
+                  </span>
+                  <input type="checkbox" name="orderUpdates" />
+                </label>
+                <label class="preference-toggle">
+                  <span>
+                    <strong>VIP offers</strong>
+                    <small>Member pricing, loyalty perks, and private access drops.</small>
+                  </span>
+                  <input type="checkbox" name="vipOffers" />
+                </label>
+                <label class="preference-toggle">
+                  <span>
+                    <strong>New collection alerts</strong>
+                    <small>Fresh arrivals across formal, wedding, party, and casual edits.</small>
+                  </span>
+                  <input type="checkbox" name="newArrivals" />
+                </label>
+                <label class="preference-toggle">
+                  <span>
+                    <strong>Custom tailoring updates</strong>
+                    <small>Measurements, approvals, and bespoke order progress notices.</small>
+                  </span>
+                  <input type="checkbox" name="customTailoring" />
+                </label>
+              </div>
+
+              <div class="preferences-group">
+                <p class="filter-label">Preferred channels</p>
+                <label class="preference-toggle">
+                  <span>
+                    <strong>Email</strong>
+                    <small>Lookbooks, order summaries, and detailed VIP messages.</small>
+                  </span>
+                  <input type="checkbox" name="email" />
+                </label>
+                <label class="preference-toggle">
+                  <span>
+                    <strong>SMS</strong>
+                    <small>Short delivery alerts and high-priority account updates.</small>
+                  </span>
+                  <input type="checkbox" name="sms" />
+                </label>
+                <label class="preference-toggle">
+                  <span>
+                    <strong>WhatsApp</strong>
+                    <small>Tailoring coordination, reminders, and shopping assistance.</small>
+                  </span>
+                  <input type="checkbox" name="whatsapp" />
+                </label>
+              </div>
+
+              <p class="form-note" id="notificationPreferencesMessage">
+                Preferences are stored with your local customer profile on this device.
+              </p>
+
+              <div class="preferences-actions">
+                <button class="primary-btn full" type="submit">Save Preferences</button>
+                <button class="ghost-btn full" id="backFromNotificationsButton" type="button">Back to Profile</button>
+              </div>
+            </form>
+          </div>
+
           <div class="profile-actions" id="profileActionsGroup" aria-label="Profile options">
             <button class="secondary-btn full" type="button" data-profile-action="cart">Open Bag</button>
             <button class="secondary-btn full" type="button" data-profile-action="orders">Order History</button>
@@ -515,11 +592,25 @@
           </div>
 
           <div id="stripePaymentForm" hidden>
-            <div id="payment-element">
-              <!-- Stripe.js injects the Payment Element here -->
+            <label>
+              Cardholder name
+              <input type="text" id="cardNameInput" placeholder="Name on card" />
+            </label>
+            <label>
+              Card number
+              <input type="text" id="cardNumberInput" inputmode="numeric" placeholder="4242 4242 4242 4242" />
+            </label>
+            <div class="form-row">
+              <label>
+                Expiry
+                <input type="text" id="cardExpiryInput" placeholder="MM/YY" />
+              </label>
+              <label>
+                CVV
+                <input type="password" id="cardCvvInput" inputmode="numeric" placeholder="123" />
+              </label>
             </div>
-            <button class="primary-btn full mt-2" id="submitStripePayment">Pay Now</button>
-            <div id="payment-message" hidden></div>
+            <button class="primary-btn full mt-2" id="submitStripePayment" type="button">Pay Now</button>
           </div>
 
           <div id="upiPaymentForm" hidden>
@@ -527,9 +618,9 @@
               UPI ID
               <input type="text" id="upiIdInput" placeholder="username@upi" required />
             </label>
-            <button class="primary-btn full mt-2" id="submitUPIPayment">Initiate UPI Payment</button>
-            <p class="form-note">A request will be sent to your UPI app.</p>
+            <button class="primary-btn full mt-2" id="submitUPIPayment" type="button">Initiate UPI Payment</button>
           </div>
+          <p class="form-note payment-message" id="paymentMessage">Choose a payment method to activate this membership.</p>
         </div>
       </div>
     </div>
@@ -555,7 +646,7 @@
     </template>
 
     <!-- Local storefront bundle -->
-    <script src="app.js?v=20260525"></script>
-    <script src="script.js?v=20260525"></script>
+    <script src="app.js?v=20260525b"></script>
+    <script src="script.js?v=20260525b"></script>
   </body>
 </html>

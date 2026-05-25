@@ -346,6 +346,32 @@ function closeMembershipPaymentModal() {
   document.body.classList.remove("drawer-open");
 }
 
+function setPaymentMessage(message, type = "info") {
+  const paymentMessage = document.getElementById("paymentMessage");
+  if (!paymentMessage) {
+    return;
+  }
+
+  paymentMessage.textContent = message;
+  paymentMessage.classList.toggle("success", type === "success");
+  paymentMessage.classList.toggle("error", type === "error");
+}
+
+function resetPaymentInputs() {
+  [
+    "cardNameInput",
+    "cardNumberInput",
+    "cardExpiryInput",
+    "cardCvvInput",
+    "upiIdInput",
+  ].forEach((id) => {
+    const input = document.getElementById(id);
+    if (input) {
+      input.value = "";
+    }
+  });
+}
+
 function openMembershipPaymentModal(customer) {
   const normalizedCustomer = normalizeCustomer(customer);
   if (!membershipRequiresPayment(normalizedCustomer)) {
@@ -392,8 +418,10 @@ function openMembershipPaymentModal(customer) {
 
   const stripePaymentForm = document.getElementById("stripePaymentForm");
   const upiPaymentForm = document.getElementById("upiPaymentForm");
+  resetPaymentInputs();
   if (stripePaymentForm) stripePaymentForm.hidden = true;
   if (upiPaymentForm) upiPaymentForm.hidden = true;
+  setPaymentMessage("Choose a payment method to activate this membership.");
 
   paymentModal.hidden = false;
   document.body.classList.add("drawer-open");
@@ -412,8 +440,13 @@ function completeMembershipPayment(method) {
     membershipPaidAt: new Date().toISOString(),
   });
 
-  closeMembershipPaymentModal();
   updateAccountView(activatedCustomer);
+  const methodLabel = method === "upi" ? "UPI" : "card";
+  setPaymentMessage(
+    `Payment received by ${methodLabel}. ${formatMembershipLabel(activatedCustomer.membershipStatus)} is now active.`,
+    "success"
+  );
+  window.setTimeout(closeMembershipPaymentModal, 1800);
 }
 
 function bindTierActions() {
@@ -460,25 +493,48 @@ function bindPaymentControls() {
   const closePaymentModalButton = document.getElementById("closePaymentModal");
   const stripePaymentButton = document.getElementById("stripePaymentBtn");
   const upiPaymentButton = document.getElementById("upiPaymentBtn");
+  const stripePaymentForm = document.getElementById("stripePaymentForm");
   const upiPaymentForm = document.getElementById("upiPaymentForm");
+  const submitStripePaymentButton = document.getElementById("submitStripePayment");
   const submitUPIPaymentButton = document.getElementById("submitUPIPayment");
 
   closePaymentModalButton?.addEventListener("click", closeMembershipPaymentModal);
 
   stripePaymentButton?.addEventListener("click", () => {
-    completeMembershipPayment("card");
+    if (stripePaymentForm) stripePaymentForm.hidden = false;
+    if (upiPaymentForm) upiPaymentForm.hidden = true;
+    setPaymentMessage("Enter card details to activate your VIP membership.");
   });
 
   upiPaymentButton?.addEventListener("click", () => {
+    if (stripePaymentForm) {
+      stripePaymentForm.hidden = true;
+    }
     if (upiPaymentForm) {
       upiPaymentForm.hidden = false;
     }
+    setPaymentMessage("Enter your UPI ID to activate your VIP membership.");
+  });
+
+  submitStripePaymentButton?.addEventListener("click", () => {
+    const cardName = document.getElementById("cardNameInput")?.value.trim();
+    const cardNumber = document.getElementById("cardNumberInput")?.value.replace(/\D/g, "");
+    const cardExpiry = document.getElementById("cardExpiryInput")?.value.trim();
+    const cardCvv = document.getElementById("cardCvvInput")?.value.replace(/\D/g, "");
+
+    if (!cardName || !cardNumber || cardNumber.length < 12 || !cardExpiry || !cardCvv || cardCvv.length < 3) {
+      setPaymentMessage("Please enter valid card details to continue.", "error");
+      return;
+    }
+
+    completeMembershipPayment("card");
   });
 
   submitUPIPaymentButton?.addEventListener("click", () => {
     const upiIdInput = document.getElementById("upiIdInput");
-    if (upiIdInput && !upiIdInput.value.trim()) {
+    if (upiIdInput && !upiIdInput.value.trim().includes("@")) {
       upiIdInput.focus();
+      setPaymentMessage("Please enter a valid UPI ID to continue.", "error");
       return;
     }
 
