@@ -1,6 +1,4 @@
 (function () {
-  const storageKey = "houseOfStyles-omniagent-chat";
-
   const quickPrompts = [
     "Help me choose an outfit",
     "Explain VIP benefits",
@@ -11,21 +9,12 @@
     {
       role: "bot",
       text:
-        "Hi, I am Stylist. I can help with shopping choices, VIP benefits, custom styling, planning, writing, and quick problem solving while you keep browsing.",
+        "Hi, I am HS AI from House of Styles. I can help with outfit choices, VIP benefits, custom styling, planning, writing, and quick problem solving while you keep browsing.",
     },
   ];
 
-  function loadMessages() {
-    try {
-      const saved = JSON.parse(localStorage.getItem(storageKey));
-      return Array.isArray(saved) && saved.length ? saved : starterMessages;
-    } catch {
-      return starterMessages;
-    }
-  }
-
-  function saveMessages(messages) {
-    localStorage.setItem(storageKey, JSON.stringify(messages.slice(-24)));
+  function freshMessages() {
+    return starterMessages.map((message) => ({ ...message }));
   }
 
   function getPageContext() {
@@ -78,31 +67,34 @@
       return;
     }
 
-    let messages = loadMessages();
+    let messages = freshMessages();
 
     const widget = document.createElement("section");
     widget.className = "agent-widget";
-    widget.setAttribute("aria-label", "Stylist chatbot");
+    widget.setAttribute("aria-label", "HS AI chatbot");
     widget.innerHTML = `
       <div class="agent-panel" id="agentPanel" hidden>
         <header class="agent-header">
           <div class="agent-title">
-            <span class="agent-avatar">S</span>
+            <span class="agent-avatar">HS</span>
             <span>
-              <strong>Stylist</strong>
-              <small>Ask while you browse</small>
+              <strong>HS AI</strong>
+              <small>House of Styles assistant</small>
             </span>
           </div>
-          <button class="agent-close" type="button" aria-label="Close Stylist">X</button>
+          <button class="agent-close" type="button" aria-label="Close HS AI">X</button>
         </header>
         <div class="agent-messages" id="agentMessages" aria-live="polite"></div>
         <div class="agent-quick-actions" aria-label="Suggested prompts"></div>
         <form class="agent-form">
-          <input type="text" name="message" placeholder="Ask Stylist..." autocomplete="off" />
+          <input type="text" name="message" placeholder="Ask HS AI..." autocomplete="off" />
           <button class="agent-send" type="submit">Send</button>
         </form>
       </div>
-      <button class="agent-launcher" type="button" aria-label="Open Stylist chatbot" aria-expanded="false" aria-controls="agentPanel">S</button>
+      <button class="agent-launcher" type="button" aria-label="Open HS AI chatbot" aria-expanded="false" aria-controls="agentPanel">
+        <span class="agent-launcher-mark">HS</span>
+        <span class="agent-launcher-text">HS AI</span>
+      </button>
     `;
 
     document.body.appendChild(widget);
@@ -118,7 +110,6 @@
     function renderMessages() {
       messagesList.replaceChildren(...messages.map(createMessageElement));
       messagesList.scrollTop = messagesList.scrollHeight;
-      saveMessages(messages);
     }
 
     function addMessage(role, text) {
@@ -137,6 +128,8 @@
     }
 
     function openPanel() {
+      messages = freshMessages();
+      renderMessages();
       panel.hidden = false;
       launcher.setAttribute("aria-expanded", "true");
       window.setTimeout(() => input.focus(), 50);

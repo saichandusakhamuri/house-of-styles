@@ -1897,17 +1897,38 @@ button {
 }
 
 .agent-launcher {
-  display: inline-grid;
-  place-items: center;
-  width: 58px;
-  height: 58px;
-  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 112px;
+  min-height: 58px;
+  padding: 8px 14px 8px 8px;
+  border-radius: 999px;
   border: 1px solid rgba(255, 250, 245, 0.7);
   background: linear-gradient(135deg, #1a1210, #9d512c);
   color: #fffaf5;
   box-shadow: 0 18px 44px rgba(36, 24, 22, 0.28);
   font-weight: 900;
   letter-spacing: 0;
+}
+
+.agent-launcher-mark {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  background: rgba(255, 250, 245, 0.14);
+  border: 1px solid rgba(255, 250, 245, 0.22);
+  color: #fffaf5;
+  font-family: "Cormorant Garamond", serif;
+  font-size: 1.18rem;
+  font-weight: 700;
+}
+
+.agent-launcher-text {
+  white-space: nowrap;
+  font-size: 0.92rem;
 }
 
 .agent-launcher:hover {
@@ -1961,6 +1982,8 @@ button {
   border-radius: 12px;
   background: linear-gradient(135deg, #241816, #9d512c);
   color: #fffaf5;
+  font-family: "Cormorant Garamond", serif;
+  font-size: 1.05rem;
   font-weight: 900;
 }
 
