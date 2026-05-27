@@ -11,7 +11,7 @@
     {
       role: "bot",
       text:
-        "Hi, I am OmniAgent. I can help with shopping choices, VIP benefits, custom styling, planning, writing, and quick problem solving while you keep browsing.",
+        "Hi, I am Stylist. I can help with shopping choices, VIP benefits, custom styling, planning, writing, and quick problem solving while you keep browsing.",
     },
   ];
 
@@ -82,27 +82,27 @@
 
     const widget = document.createElement("section");
     widget.className = "agent-widget";
-    widget.setAttribute("aria-label", "OmniAgent chatbot");
+    widget.setAttribute("aria-label", "Stylist chatbot");
     widget.innerHTML = `
       <div class="agent-panel" id="agentPanel" hidden>
         <header class="agent-header">
           <div class="agent-title">
-            <span class="agent-avatar">AI</span>
+            <span class="agent-avatar">S</span>
             <span>
-              <strong>OmniAgent</strong>
+              <strong>Stylist</strong>
               <small>Ask while you browse</small>
             </span>
           </div>
-          <button class="agent-close" type="button" aria-label="Close OmniAgent">X</button>
+          <button class="agent-close" type="button" aria-label="Close Stylist">X</button>
         </header>
         <div class="agent-messages" id="agentMessages" aria-live="polite"></div>
         <div class="agent-quick-actions" aria-label="Suggested prompts"></div>
         <form class="agent-form">
-          <input type="text" name="message" placeholder="Ask OmniAgent..." autocomplete="off" />
+          <input type="text" name="message" placeholder="Ask Stylist..." autocomplete="off" />
           <button class="agent-send" type="submit">Send</button>
         </form>
       </div>
-      <button class="agent-launcher" type="button" aria-label="Open OmniAgent chatbot" aria-expanded="false" aria-controls="agentPanel">AI</button>
+      <button class="agent-launcher" type="button" aria-label="Open Stylist chatbot" aria-expanded="false" aria-controls="agentPanel">S</button>
     `;
 
     document.body.appendChild(widget);
