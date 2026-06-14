@@ -111,6 +111,11 @@ const reasoningMarkers = [
   /Identify missing details/i,
   /Formulate the response/i,
   /Draft the response/i,
+  /The user is asking/i,
+  /According to the instructions/i,
+  /Let's list/i,
+  /Follow-up question/i,
+  /I should/i,
   /^1\.\s+/m,
   /^2\.\s+/m,
   /^3\.\s+/m,
@@ -134,7 +139,12 @@ const stripReasoningPreamble = (text) => {
       !lower.startsWith('consult the catalog') &&
       !lower.startsWith('identify missing details') &&
       !lower.startsWith('formulate the response') &&
-      !lower.startsWith('draft the response')
+      !lower.startsWith('draft the response') &&
+      !lower.startsWith('the user is asking') &&
+      !lower.startsWith('according to the instructions') &&
+      !lower.startsWith("let's list") &&
+      !lower.startsWith('follow-up question') &&
+      !lower.startsWith('i should')
     );
   });
 
