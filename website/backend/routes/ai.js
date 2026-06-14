@@ -7,6 +7,7 @@ const { staticMembershipTiers } = require('../data/staticMembershipTiers');
 const router = express.Router();
 
 const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-3.5-flash';
+const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || 'nvidia/nemotron-3-ultra-550b-a55b:free';
 const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-4.1-mini';
 
 const productCatalogText = staticProducts
@@ -107,6 +108,60 @@ const extractGeminiOutputText = (body) => {
   return parts.join('\n').trim();
 };
 
+const extractOpenRouterOutputText = (body) => {
+  const choice = body.choices?.[0];
+  const message = choice?.message;
+
+  if (typeof message?.content === 'string') {
+    return message.content.trim();
+  }
+
+  if (Array.isArray(message?.content)) {
+    return message.content
+      .map((item) => (typeof item?.text === 'string' ? item.text : ''))
+      .join('\n')
+      .trim();
+  }
+
+  return String(message?.content || '').trim();
+};
+
+const getGeminiApiKeys = () => {
+  const values = [
+    process.env.GEMINI_API_KEYS,
+    process.env.GEMINI_API_KEY,
+    process.env.GEMINI_API_KEY_2,
+    process.env.GEMINI_API_KEY_3,
+    process.env.GEMINI_API_KEY_4,
+    process.env.GEMINI_API_KEY_5,
+  ];
+
+  const keys = values
+    .flatMap((value) => String(value || '').split(/[,;\n]/g))
+    .map((value) => value.trim())
+    .filter(Boolean);
+
+  return [...new Set(keys)];
+};
+
+const getOpenRouterApiKeys = () => {
+  const values = [
+    process.env.OPENROUTER_API_KEYS,
+    process.env.OPENROUTER_API_KEY,
+    process.env.OPENROUTER_API_KEY_2,
+    process.env.OPENROUTER_API_KEY_3,
+    process.env.OPENROUTER_API_KEY_4,
+    process.env.OPENROUTER_API_KEY_5,
+  ];
+
+  const keys = values
+    .flatMap((value) => String(value || '').split(/[,;\n]/g))
+    .map((value) => value.trim())
+    .filter(Boolean);
+
+  return [...new Set(keys)];
+};
+
 const buildOpenAIInput = (pageContext, messages) => [
   {
     role: 'system',
@@ -120,6 +175,17 @@ const buildOpenAIInput = (pageContext, messages) => [
   ...messages.map((message) => ({
     role: message.role,
     content: [{ type: 'input_text', text: message.content }],
+  })),
+];
+
+const buildOpenRouterInput = (pageContext, messages) => [
+  {
+    role: 'system',
+    content: `${systemPrompt}\n\nCurrent website page: ${pageContext}`,
+  },
+  ...messages.map((message) => ({
+    role: message.role,
+    content: message.content,
   })),
 ];
 
@@ -244,8 +310,8 @@ const cleanFallbackReply = (messages, reply) => {
   return normalized || 'Could you share a bit more detail so I can help?';
 };
 
-const rewriteCustomerFacingReply = async ({ rawReply, pageContext }) => {
-  const apiKey = process.env.GEMINI_API_KEY || process.env.OPENAI_API_KEY;
+const rewriteCustomerFacingReply = async ({ rawReply, pageContext, geminiApiKeys = [], openRouterApiKeys = [] }) => {
+  const apiKey = geminiApiKeys[0] || openRouterApiKeys[0] || process.env.OPENAI_API_KEY;
   if (!apiKey) {
     return stripReasoningPreamble(rawReply);
   }
@@ -266,7 +332,7 @@ ${rawReply}
 `.trim();
 
   try {
-    if (process.env.GEMINI_API_KEY) {
+    if (geminiApiKeys.length) {
       const response = await callGemini({
         pageContext,
         messages: [
@@ -275,8 +341,24 @@ ${rawReply}
             content: rewritePrompt,
           },
         ],
+        apiKey,
       });
       const rewritten = extractGeminiOutputText(response);
+      return rewritten || stripReasoningPreamble(rawReply);
+    }
+
+    if (openRouterApiKeys.length) {
+      const response = await callOpenRouter({
+        model: OPENROUTER_MODEL,
+        messages: [
+          {
+            role: 'user',
+            content: rewritePrompt,
+          },
+        ],
+        apiKey,
+      });
+      const rewritten = extractOpenRouterOutputText(response);
       return rewritten || stripReasoningPreamble(rawReply);
     }
 
@@ -308,9 +390,8 @@ ${rawReply}
   }
 };
 
-const callGemini = ({ messages, pageContext }) =>
+const callGemini = ({ messages, pageContext, apiKey }) =>
   new Promise((resolve, reject) => {
-    const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
       reject(new AppError('Stylist AI is not configured. Add GEMINI_API_KEY in Render environment variables.', 503));
       return;
@@ -375,6 +456,62 @@ const callGemini = ({ messages, pageContext }) =>
     request.end();
   });
 
+const callOpenRouter = ({ messages, model, apiKey }) =>
+  new Promise((resolve, reject) => {
+    if (!apiKey) {
+      reject(new AppError('Stylist AI is not configured. Add OPENROUTER_API_KEY in Render environment variables.', 503));
+      return;
+    }
+
+    const body = JSON.stringify({
+      model,
+      messages,
+    });
+
+    const request = https.request(
+      {
+        hostname: 'openrouter.ai',
+        path: '/api/v1/chat/completions',
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(body),
+          'HTTP-Referer': 'https://house-of-styles-frontend.onrender.com',
+          'X-OpenRouter-Title': 'House of Styles',
+        },
+      },
+      (response) => {
+        let responseBody = '';
+        response.on('data', (chunk) => {
+          responseBody += chunk;
+        });
+        response.on('end', () => {
+          let parsedBody;
+          try {
+            parsedBody = JSON.parse(responseBody);
+          } catch {
+            parsedBody = { message: responseBody };
+          }
+
+          if (response.statusCode >= 400) {
+            reject(new AppError(parsedBody?.error?.message || 'OpenRouter request failed.', response.statusCode));
+            return;
+          }
+
+          resolve(parsedBody);
+        });
+      }
+    );
+
+    request.on('error', (error) => {
+      reject(new AppError(error.message || 'OpenRouter could not connect.', 502));
+    });
+
+    request.write(body);
+    request.end();
+  });
+
 const callOpenAI = (payload) =>
   new Promise((resolve, reject) => {
     const apiKey = process.env.OPENAI_API_KEY;
@@ -429,6 +566,8 @@ const callOpenAI = (payload) =>
 router.post('/stylist', async (req, res) => {
   const messages = normalizeMessages(req.body.messages);
   const pageContext = String(req.body.pageContext || 'Storefront').slice(0, 80);
+  const geminiApiKeys = getGeminiApiKeys();
+  const openRouterApiKeys = getOpenRouterApiKeys();
 
   if (!messages.length) {
     throw new AppError('A message is required for Stylist.', 400);
@@ -437,22 +576,51 @@ router.post('/stylist', async (req, res) => {
   let provider = 'gemini';
   let model = GEMINI_MODEL;
   let reply = '';
+  let lastGeminiError = null;
+  let lastOpenRouterError = null;
+  let lastOpenAIError = null;
 
-  if (process.env.GEMINI_API_KEY) {
+  if (geminiApiKeys.length) {
+    for (const apiKey of geminiApiKeys) {
+      try {
+        const aiResponse = await callGemini({ messages, pageContext, apiKey });
+        reply = extractGeminiOutputText(aiResponse);
+        const finishReason = getGeminiFinishReason(aiResponse);
+        if (finishReason && finishReason !== 'STOP') {
+          throw new AppError(`Gemini stopped before completing the answer. Finish reason: ${finishReason}.`, 502);
+        }
+
+        lastGeminiError = null;
+        break;
+      } catch (error) {
+        lastGeminiError = error;
+      }
+    }
+  }
+
+  if (!reply && openRouterApiKeys.length) {
+    for (const apiKey of openRouterApiKeys) {
+      try {
+        const aiResponse = await callOpenRouter({
+          model: OPENROUTER_MODEL,
+          messages: buildOpenRouterInput(pageContext, messages),
+          apiKey,
+        });
+        reply = extractOpenRouterOutputText(aiResponse);
+        provider = 'openrouter';
+        model = OPENROUTER_MODEL;
+        lastOpenRouterError = null;
+        break;
+      } catch (error) {
+        lastOpenRouterError = error;
+      }
+    }
+  }
+
+  if (!reply && process.env.OPENAI_API_KEY) {
+    provider = 'openai';
+    model = OPENAI_MODEL;
     try {
-      const aiResponse = await callGemini({ messages, pageContext });
-      reply = extractGeminiOutputText(aiResponse);
-      const finishReason = getGeminiFinishReason(aiResponse);
-      if (finishReason && finishReason !== 'STOP') {
-        throw new AppError(`Gemini stopped before completing the answer. Finish reason: ${finishReason}.`, 502);
-      }
-    } catch (error) {
-      if (!process.env.OPENAI_API_KEY || !isQuotaOrRateLimitError(error)) {
-        throw error;
-      }
-
-      provider = 'openai';
-      model = OPENAI_MODEL;
       const aiResponse = await callOpenAI({
         model: OPENAI_MODEL,
         input: buildOpenAIInput(pageContext, messages),
@@ -461,22 +629,23 @@ router.post('/stylist', async (req, res) => {
       });
 
       reply = extractOpenAIOutputText(aiResponse);
+      lastOpenAIError = null;
+    } catch (error) {
+      lastOpenAIError = error;
     }
-  } else {
-    provider = 'openai';
-    model = OPENAI_MODEL;
-    const aiResponse = await callOpenAI({
-      model: OPENAI_MODEL,
-      input: buildOpenAIInput(pageContext, messages),
-      max_output_tokens: 500,
-      temperature: 0.2,
-    });
+  }
 
-    reply = extractOpenAIOutputText(aiResponse);
+  if (!reply) {
+    throw (
+      lastGeminiError ||
+      lastOpenRouterError ||
+      lastOpenAIError ||
+      new AppError('Stylist AI returned an empty response.', 502)
+    );
   }
 
   if (looksLikeReasoningDump(reply)) {
-    reply = await rewriteCustomerFacingReply({ rawReply: reply, pageContext });
+    reply = await rewriteCustomerFacingReply({ rawReply: reply, pageContext, geminiApiKeys, openRouterApiKeys });
   }
 
   reply = cleanFallbackReply(messages, reply);

@@ -17,8 +17,16 @@ services:
         sync: false # Set this to your Render Static Site URL
       - key: GEMINI_API_KEY
         sync: false # Add this secret in Render; never commit the key
+      - key: GEMINI_API_KEYS
+        sync: false # Optional comma-separated backup Gemini keys
       - key: GEMINI_MODEL
         value: gemini-3.5-flash
+      - key: OPENROUTER_API_KEY
+        sync: false # Optional fallback provider key
+      - key: OPENROUTER_API_KEYS
+        sync: false # Optional comma-separated backup OpenRouter keys
+      - key: OPENROUTER_MODEL
+        value: nvidia/nemotron-3-ultra-550b-a55b:free
       - key: OPENAI_API_KEY
         sync: false # Optional fallback only
       - key: OPENAI_MODEL
