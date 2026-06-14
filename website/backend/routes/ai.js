@@ -115,7 +115,7 @@ const callGemini = ({ messages, pageContext }) =>
       },
       contents,
       generationConfig: {
-        maxOutputTokens: 500,
+        maxOutputTokens: 900,
       },
     };
 
@@ -250,7 +250,7 @@ router.post('/stylist', async (req, res) => {
     const aiResponse = await callOpenAI({
       model: OPENAI_MODEL,
       input,
-      max_output_tokens: 500,
+      max_output_tokens: 900,
       temperature: 0.7,
     });
 
