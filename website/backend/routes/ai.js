@@ -118,6 +118,11 @@ const reasoningMarkers = [
   /Let's list/i,
   /Follow-up question/i,
   /I should/i,
+  /No bullets/i,
+  /numbered steps/i,
+  /headings/i,
+  /labels/i,
+  /multiple paragraphs/i,
   /^1\.\s+/m,
   /^2\.\s+/m,
   /^3\.\s+/m,
@@ -146,7 +151,12 @@ const stripReasoningPreamble = (text) => {
       !lower.startsWith('according to the instructions') &&
       !lower.startsWith("let's list") &&
       !lower.startsWith('follow-up question') &&
-      !lower.startsWith('i should')
+      !lower.startsWith('i should') &&
+      !lower.includes('no bullets') &&
+      !lower.includes('numbered steps') &&
+      !lower.includes('headings') &&
+      !lower.includes('labels') &&
+      !lower.includes('multiple paragraphs')
     );
   });
 
@@ -177,6 +187,33 @@ const collapseToSingleCustomerSentence = (text) => {
   }
 
   return lines[0] || normalized;
+};
+
+const isStyleRequest = (messages) => {
+  const lastUserMessage = [...messages].reverse().find((message) => message.role === 'user');
+  const text = String(lastUserMessage?.content || '').toLowerCase();
+  return (
+    text.includes('style') ||
+    text.includes('outfit') ||
+    text.includes('wear') ||
+    text.includes('budget') ||
+    text.includes('rs ') ||
+    text.includes('price') ||
+    text.includes('occasion')
+  );
+};
+
+const cleanFallbackReply = (messages, reply) => {
+  const normalized = collapseToSingleCustomerSentence(stripReasoningPreamble(reply));
+  if (normalized && !looksLikeReasoningDump(normalized)) {
+    return normalized;
+  }
+
+  if (isStyleRequest(messages)) {
+    return 'To help me narrow this down for you, what is the occasion you are shopping for?';
+  }
+
+  return normalized || 'Could you share a bit more detail so I can help?';
 };
 
 const rewriteCustomerFacingReply = async ({ rawReply, pageContext }) => {
@@ -413,8 +450,7 @@ router.post('/stylist', async (req, res) => {
     reply = await rewriteCustomerFacingReply({ rawReply: reply, pageContext });
   }
 
-  reply = stripReasoningPreamble(reply);
-  reply = collapseToSingleCustomerSentence(reply);
+  reply = cleanFallbackReply(messages, reply);
 
   if (!reply) {
     throw new AppError('Stylist AI returned an empty response.', 502);
