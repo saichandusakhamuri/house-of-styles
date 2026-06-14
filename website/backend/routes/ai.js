@@ -6,7 +6,7 @@ const { staticMembershipTiers } = require('../data/staticMembershipTiers');
 
 const router = express.Router();
 
-const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-3.5-flash';
+const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
 const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-4.1-mini';
 
 const productCatalogText = staticProducts
@@ -41,6 +41,7 @@ Your job:
 - Use the House of Styles catalog and membership details below. Do not invent unavailable products, prices, discounts, delivery promises, refund policy, or stock.
 - If a user asks about something the store data does not define, say what you can verify and ask one focused follow-up.
 - Keep replies concise but complete. Prefer 2-5 short paragraphs or a numbered shortlist.
+- Finish every answer cleanly. Do not stop mid-word or mid-sentence.
 - For styling requests, consider occasion, wearer, budget, color, fit, size, and comfort.
 - If the user's request is vague, ask for the minimum details needed.
 - The chat opens fresh each time, so do not assume long-term memory.
@@ -85,6 +86,8 @@ const extractOpenAIOutputText = (body) => {
   return parts.join('\n').trim();
 };
 
+const getGeminiFinishReason = (body) => body.candidates?.[0]?.finishReason || '';
+
 const extractGeminiOutputText = (body) => {
   const parts = [];
   for (const candidate of body.candidates || []) {
@@ -115,6 +118,7 @@ const callGemini = ({ messages, pageContext }) =>
       },
       contents,
       generationConfig: {
+        temperature: 0.7,
         maxOutputTokens: 900,
       },
     };
@@ -228,6 +232,10 @@ router.post('/stylist', async (req, res) => {
   if (process.env.GEMINI_API_KEY) {
     const aiResponse = await callGemini({ messages, pageContext });
     reply = extractGeminiOutputText(aiResponse);
+    const finishReason = getGeminiFinishReason(aiResponse);
+    if (finishReason && finishReason !== 'STOP') {
+      throw new AppError(`Gemini stopped before completing the answer. Finish reason: ${finishReason}.`, 502);
+    }
   } else {
     provider = 'openai';
     model = OPENAI_MODEL;

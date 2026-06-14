@@ -18,7 +18,7 @@ services:
       - key: GEMINI_API_KEY
         sync: false # Add this secret in Render; never commit the key
       - key: GEMINI_MODEL
-        value: gemini-3.5-flash
+        value: gemini-1.5-flash
       - key: OPENAI_API_KEY
         sync: false # Optional fallback only
       - key: OPENAI_MODEL
