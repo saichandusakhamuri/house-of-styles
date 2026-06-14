@@ -107,6 +107,22 @@ const extractGeminiOutputText = (body) => {
   return parts.join('\n').trim();
 };
 
+const buildOpenAIInput = (pageContext, messages) => [
+  {
+    role: 'system',
+    content: [
+      {
+        type: 'input_text',
+        text: `${systemPrompt}\n\nCurrent website page: ${pageContext}`,
+      },
+    ],
+  },
+  ...messages.map((message) => ({
+    role: message.role,
+    content: [{ type: 'input_text', text: message.content }],
+  })),
+];
+
 const reasoningMarkers = [
   /Analyze the user's input/i,
   /Consult the Catalog/i,
@@ -129,6 +145,18 @@ const reasoningMarkers = [
 ];
 
 const looksLikeReasoningDump = (text) => reasoningMarkers.some((pattern) => pattern.test(text));
+
+const isQuotaOrRateLimitError = (error) => {
+  const statusCode = Number(error?.statusCode || error?.status || 0);
+  const message = String(error?.message || '').toLowerCase();
+  return (
+    statusCode === 429 ||
+    message.includes('quota exceeded') ||
+    message.includes('rate limit') ||
+    message.includes('resource_exhausted') ||
+    message.includes('too many requests')
+  );
+};
 
 const stripReasoningPreamble = (text) => {
   const lines = String(text || '')
@@ -411,34 +439,35 @@ router.post('/stylist', async (req, res) => {
   let reply = '';
 
   if (process.env.GEMINI_API_KEY) {
-    const aiResponse = await callGemini({ messages, pageContext });
-    reply = extractGeminiOutputText(aiResponse);
-    const finishReason = getGeminiFinishReason(aiResponse);
-    if (finishReason && finishReason !== 'STOP') {
-      throw new AppError(`Gemini stopped before completing the answer. Finish reason: ${finishReason}.`, 502);
+    try {
+      const aiResponse = await callGemini({ messages, pageContext });
+      reply = extractGeminiOutputText(aiResponse);
+      const finishReason = getGeminiFinishReason(aiResponse);
+      if (finishReason && finishReason !== 'STOP') {
+        throw new AppError(`Gemini stopped before completing the answer. Finish reason: ${finishReason}.`, 502);
+      }
+    } catch (error) {
+      if (!process.env.OPENAI_API_KEY || !isQuotaOrRateLimitError(error)) {
+        throw error;
+      }
+
+      provider = 'openai';
+      model = OPENAI_MODEL;
+      const aiResponse = await callOpenAI({
+        model: OPENAI_MODEL,
+        input: buildOpenAIInput(pageContext, messages),
+        max_output_tokens: 500,
+        temperature: 0.2,
+      });
+
+      reply = extractOpenAIOutputText(aiResponse);
     }
   } else {
     provider = 'openai';
     model = OPENAI_MODEL;
-    const input = [
-      {
-        role: 'system',
-        content: [
-          {
-            type: 'input_text',
-            text: `${systemPrompt}\n\nCurrent website page: ${pageContext}`,
-          },
-        ],
-      },
-      ...messages.map((message) => ({
-        role: message.role,
-        content: [{ type: 'input_text', text: message.content }],
-      })),
-    ];
-
     const aiResponse = await callOpenAI({
       model: OPENAI_MODEL,
-      input,
+      input: buildOpenAIInput(pageContext, messages),
       max_output_tokens: 500,
       temperature: 0.2,
     });
