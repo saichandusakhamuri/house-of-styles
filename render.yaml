@@ -15,6 +15,10 @@ services:
         value: "10000"
       - key: CORS_ORIGIN
         sync: false # Set this to your Render Static Site URL
+      - key: OPENAI_API_KEY
+        sync: false # Add this secret in Render; never commit the key
+      - key: OPENAI_MODEL
+        value: gpt-4.1-mini
 
   - type: web
     name: house-of-styles-frontend
