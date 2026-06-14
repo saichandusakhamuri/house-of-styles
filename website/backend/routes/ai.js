@@ -105,6 +105,108 @@ const extractGeminiOutputText = (body) => {
   return parts.join('\n').trim();
 };
 
+const reasoningMarkers = [
+  /Analyze the user's input/i,
+  /Consult the Catalog/i,
+  /Identify missing details/i,
+  /Formulate the response/i,
+  /Draft the response/i,
+  /^1\.\s+/m,
+  /^2\.\s+/m,
+  /^3\.\s+/m,
+];
+
+const looksLikeReasoningDump = (text) => reasoningMarkers.some((pattern) => pattern.test(text));
+
+const stripReasoningPreamble = (text) => {
+  const lines = String(text || '')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  if (!lines.length) return '';
+
+  const firstUsefulLineIndex = lines.findIndex((line) => {
+    const lower = line.toLowerCase();
+    return (
+      !/^(\d+\.|[-*])\s*/.test(line) &&
+      !lower.startsWith('analyze the user') &&
+      !lower.startsWith('consult the catalog') &&
+      !lower.startsWith('identify missing details') &&
+      !lower.startsWith('formulate the response') &&
+      !lower.startsWith('draft the response')
+    );
+  });
+
+  if (firstUsefulLineIndex <= 0) {
+    return lines.join('\n').trim();
+  }
+
+  return lines.slice(firstUsefulLineIndex).join('\n').trim();
+};
+
+const rewriteCustomerFacingReply = async ({ rawReply, pageContext }) => {
+  const apiKey = process.env.GEMINI_API_KEY || process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    return stripReasoningPreamble(rawReply);
+  }
+
+  const rewritePrompt = `
+Rewrite the text below into a clean customer-facing reply for the House of Styles AI assistant.
+- Remove all hidden reasoning, analysis steps, checklists, and meta commentary.
+- Keep only the final answer or one short follow-up question.
+- Do not mention that you rewrote anything.
+- Keep the tone natural, mature, and helpful.
+
+Current website page: ${pageContext}
+
+Text to rewrite:
+${rawReply}
+`.trim();
+
+  try {
+    if (process.env.GEMINI_API_KEY) {
+      const response = await callGemini({
+        pageContext,
+        messages: [
+          {
+            role: 'user',
+            content: rewritePrompt,
+          },
+        ],
+      });
+      const rewritten = extractGeminiOutputText(response);
+      return rewritten || stripReasoningPreamble(rawReply);
+    }
+
+    const response = await callOpenAI({
+      model: OPENAI_MODEL,
+      input: [
+        {
+          role: 'system',
+          content: [
+            {
+              type: 'input_text',
+              text: 'Rewrite customer-facing copy only. Remove all reasoning, analysis, and checklist text.',
+            },
+          ],
+        },
+        {
+          role: 'user',
+          content: [{ type: 'input_text', text: rewritePrompt }],
+        },
+      ],
+      max_output_tokens: 300,
+      temperature: 0.2,
+    });
+
+    const rewritten = extractOpenAIOutputText(response);
+    return rewritten || stripReasoningPreamble(rawReply);
+  } catch {
+    return stripReasoningPreamble(rawReply);
+  }
+};
+
 const callGemini = ({ messages, pageContext }) =>
   new Promise((resolve, reject) => {
     const apiKey = process.env.GEMINI_API_KEY;
@@ -270,6 +372,12 @@ router.post('/stylist', async (req, res) => {
 
     reply = extractOpenAIOutputText(aiResponse);
   }
+
+  if (looksLikeReasoningDump(reply)) {
+    reply = await rewriteCustomerFacingReply({ rawReply: reply, pageContext });
+  }
+
+  reply = stripReasoningPreamble(reply);
 
   if (!reply) {
     throw new AppError('Stylist AI returned an empty response.', 502);
