@@ -94,6 +94,7 @@ async function initializeApp() {
 
   // Load membership tiers
   await loadMembershipTiers();
+  updateHomepageHighlights();
 
   // Load user membership if logged in
   if (api.isAuthenticated()) {
@@ -147,11 +148,85 @@ async function loadProducts(options = {}) {
     const apiProducts = Array.isArray(response.data) ? response.data : [];
     appState.products = apiProducts.map(normalizeProduct);
     renderProducts();
+    updateHomepageHighlights();
   } catch (error) {
     console.warn('Product API failed', error);
     appState.products = [];
     renderProducts();
+    updateHomepageHighlights();
     showNotification(error.message || 'Products are unavailable right now.', 'error');
+  }
+}
+
+function updateHomepageHighlights() {
+  const heroStats = document.querySelectorAll('.hero-stats article');
+  const heroCards = document.querySelectorAll('.store-hero-visuals .hero-display-card');
+  const marketPills = document.querySelectorAll('.market-strip .market-pill');
+
+  if (!heroStats.length && !heroCards.length && !marketPills.length) {
+    return;
+  }
+
+  const products = appState.products || [];
+  const featuredProducts = products.filter((product) => product.isFeatured).slice(0, 2);
+  const displayProducts = featuredProducts.length ? featuredProducts : products.slice(0, 2);
+  const lowestPrice = products.length ? Math.min(...products.map((product) => product.finalPrice)) : 0;
+  const highestPrice = products.length ? Math.max(...products.map((product) => product.finalPrice)) : 0;
+  const categoryCount = new Set(products.map((product) => product.category)).size;
+
+  if (heroStats[0]) {
+    const strong = heroStats[0].querySelector('strong');
+    const span = heroStats[0].querySelector('span');
+    if (strong) strong.textContent = `${products.length || 0} Live Pieces`;
+    if (span) span.textContent = `${categoryCount || 0} categories updated from the backend`;
+  }
+
+  if (heroStats[1]) {
+    const strong = heroStats[1].querySelector('strong');
+    const span = heroStats[1].querySelector('span');
+    if (strong) strong.textContent = `${displayProducts.length || 0} Featured Picks`;
+    if (span) span.textContent = displayProducts.length
+      ? `Top styles refreshed from the live catalog`
+      : `Featured styles will appear once products load`;
+  }
+
+  if (heroStats[2]) {
+    const strong = heroStats[2].querySelector('strong');
+    const span = heroStats[2].querySelector('span');
+    if (strong) strong.textContent = highestPrice ? `From ${formatPrice(lowestPrice)}` : 'Live Pricing';
+    if (span) span.textContent = highestPrice
+      ? `Up to ${formatPrice(highestPrice)} across the catalog`
+      : 'Pricing will appear when the catalog loads';
+  }
+
+  if (heroCards[0]) {
+    const tag = heroCards[0].querySelector('.tag');
+    const title = heroCards[0].querySelector('h3');
+    if (tag) tag.textContent = displayProducts[0]?.category || 'Live Catalog';
+    if (title) {
+      title.textContent = displayProducts[0]
+        ? `${displayProducts[0].name} at ${formatPrice(displayProducts[0].finalPrice)}`
+        : 'Featured styles will appear here';
+    }
+  }
+
+  if (heroCards[1]) {
+    const tag = heroCards[1].querySelector('.tag');
+    const title = heroCards[1].querySelector('h3');
+    if (tag) tag.textContent = displayProducts[1]?.category || 'Trending';
+    if (title) {
+      title.textContent = displayProducts[1]
+        ? `${displayProducts[1].name} with ${displayProducts[1].audience.toLowerCase()} appeal`
+        : 'More live styles load from the backend';
+    }
+  }
+
+  if (marketPills.length >= 5) {
+    marketPills[0].textContent = `${products.length || 0} live styles`;
+    marketPills[1].textContent = `${categoryCount || 0} style families`;
+    marketPills[2].textContent = featuredProducts.length ? `${featuredProducts.length} featured picks` : 'Live catalog feed';
+    marketPills[3].textContent = highestPrice ? `From ${formatPrice(lowestPrice)}` : 'Backend pricing';
+    marketPills[4].textContent = api.isAuthenticated() ? 'Signed-in shopping' : 'Live shopping experience';
   }
 }
 
