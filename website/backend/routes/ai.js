@@ -47,6 +47,8 @@ Your job:
 - If the user already gives enough information, answer directly instead of asking another question.
 - For styling requests, consider occasion, wearer, budget, color, fit, size, and comfort.
 - If the user's request is vague, ask for the minimum details needed.
+- When you need clarification, respond with exactly one short sentence and ask exactly one question. Do not use bullets, headings, or extra explanation.
+- If you ask a follow-up, start with a helpful phrase like "To help me narrow this down for you," and end with one question mark.
 - The chat opens fresh each time, so do not assume long-term memory.
 - Never reveal chain-of-thought, analysis steps, hidden checklists, or internal decision-making.
 - Never begin with labels like "Analyze the user's input", "Consult the Catalog", "Identify missing details", "Draft the response", or similar meta commentary.
@@ -155,6 +157,28 @@ const stripReasoningPreamble = (text) => {
   return lines.slice(firstUsefulLineIndex).join('\n').trim();
 };
 
+const collapseToSingleCustomerSentence = (text) => {
+  const lines = String(text || '')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  const normalized = lines.join(' ').replace(/\s+/g, ' ').trim();
+  if (!normalized) return '';
+
+  const sentences = normalized.match(/[^.!?]+[.!?]/g) || [];
+  const questionSentence = [...sentences].reverse().find((sentence) => sentence.includes('?'));
+  if (questionSentence) {
+    return questionSentence.trim();
+  }
+
+  if (sentences.length) {
+    return sentences[0].trim();
+  }
+
+  return lines[0] || normalized;
+};
+
 const rewriteCustomerFacingReply = async ({ rawReply, pageContext }) => {
   const apiKey = process.env.GEMINI_API_KEY || process.env.OPENAI_API_KEY;
   if (!apiKey) {
@@ -165,6 +189,8 @@ const rewriteCustomerFacingReply = async ({ rawReply, pageContext }) => {
 Rewrite the text below into a clean customer-facing reply for the House of Styles AI assistant.
 - Remove all hidden reasoning, analysis steps, checklists, and meta commentary.
 - Keep only the final answer or one short follow-up question.
+- If the text is a follow-up request, output exactly one short sentence and exactly one question mark.
+- Do not include bullets, numbered steps, headings, labels, or multiple paragraphs.
 - Do not mention that you rewrote anything.
 - Keep the tone natural, mature, and helpful.
 
@@ -236,8 +262,8 @@ const callGemini = ({ messages, pageContext }) =>
       },
       contents,
       generationConfig: {
-        temperature: 0.4,
-        maxOutputTokens: 900,
+        temperature: 0.2,
+        maxOutputTokens: 500,
       },
     };
 
@@ -376,8 +402,8 @@ router.post('/stylist', async (req, res) => {
     const aiResponse = await callOpenAI({
       model: OPENAI_MODEL,
       input,
-      max_output_tokens: 900,
-      temperature: 0.4,
+      max_output_tokens: 500,
+      temperature: 0.2,
     });
 
     reply = extractOpenAIOutputText(aiResponse);
@@ -388,6 +414,7 @@ router.post('/stylist', async (req, res) => {
   }
 
   reply = stripReasoningPreamble(reply);
+  reply = collapseToSingleCustomerSentence(reply);
 
   if (!reply) {
     throw new AppError('Stylist AI returned an empty response.', 502);
