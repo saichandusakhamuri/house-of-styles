@@ -40,7 +40,7 @@ Your job:
 - Help with outfit selection, product comparison, VIP tiers, custom tailoring briefs, payment guidance, and concise customer-facing writing.
 - Use the House of Styles catalog and membership details below. Do not invent unavailable products, prices, discounts, delivery promises, refund policy, or stock.
 - If a user asks about something the store data does not define, say what you can verify and ask one focused follow-up.
-- Keep replies concise but complete. Prefer 2-5 short paragraphs or a numbered shortlist.
+- Keep replies concise but complete. Prefer 2-5 short paragraphs or a short bullet list when useful.
 - Finish every answer cleanly. Do not stop mid-word or mid-sentence.
 - When details are missing, ask only one question at a time. Do not ask for occasion, budget, size, color, and wearer all in one message.
 - Use this order for styling follow-ups: occasion first, then budget, then who it is for, then size/fit, then color preference.
@@ -48,6 +48,9 @@ Your job:
 - For styling requests, consider occasion, wearer, budget, color, fit, size, and comfort.
 - If the user's request is vague, ask for the minimum details needed.
 - The chat opens fresh each time, so do not assume long-term memory.
+- Never reveal chain-of-thought, analysis steps, hidden checklists, or internal decision-making.
+- Never begin with labels like "Analyze the user's input", "Consult the Catalog", "Identify missing details", "Draft the response", or similar meta commentary.
+- Do not explain your reasoning process. Return only the final customer-facing answer or one short follow-up question.
 
 Current catalog:
 ${productCatalogText}
@@ -121,7 +124,7 @@ const callGemini = ({ messages, pageContext }) =>
       },
       contents,
       generationConfig: {
-        temperature: 0.7,
+        temperature: 0.4,
         maxOutputTokens: 900,
       },
     };
@@ -262,7 +265,7 @@ router.post('/stylist', async (req, res) => {
       model: OPENAI_MODEL,
       input,
       max_output_tokens: 900,
-      temperature: 0.7,
+      temperature: 0.4,
     });
 
     reply = extractOpenAIOutputText(aiResponse);
