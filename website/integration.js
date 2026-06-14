@@ -23,6 +23,7 @@ const appState = {
   cart: loadStorage(STORAGE_KEYS.cart, []),
   favorites: loadStorage(STORAGE_KEYS.favorites, []),
   products: [],
+  siteContent: null,
   currentUser: api.getUser(),
   membershipTiers: [],
   userMembership: null,
@@ -89,6 +90,8 @@ let currentOrderId;
 // ==================== INITIALIZATION ====================
 
 async function initializeApp() {
+  await loadSiteContent();
+
   // Load products from backend
   await loadProducts();
 
@@ -117,6 +120,132 @@ async function initializeApp() {
   // Update cart and favorites display
   updateCartDisplay();
   updateFavoritesDisplay();
+}
+
+async function loadSiteContent() {
+  try {
+    const response = await api.request('/site-content');
+    appState.siteContent = response.data || null;
+    applySiteContent();
+  } catch (error) {
+    console.warn('Site content API failed', error);
+  }
+}
+
+function applySiteContent() {
+  const content = appState.siteContent;
+  if (!content) return;
+
+  if (window.location.pathname.includes('vip.html') || document.querySelector('.vip-page')) {
+    const vip = content.vip || {};
+    const heroEyebrow = document.querySelector('.vip-hero .eyebrow');
+    const heroTitle = document.querySelector('.vip-hero h1');
+    const heroText = document.querySelector('.vip-hero .hero-text');
+    const cardTitle = document.querySelector('.vip-hero-card h2');
+    const cardText = document.querySelector('.vip-hero-card p');
+    const statusHeading = document.querySelector('.vip-status-section .section-heading h2');
+    const statusEyebrow = document.querySelector('.vip-status-section .section-heading .eyebrow');
+    const signedOutTitle = document.querySelector('#vipSigninPrompt h3');
+    const signedOutText = document.querySelector('#vipSigninPrompt .hero-text');
+    const tiersTitle = document.querySelector('.vip-tiers-section .section-heading h2');
+    if (heroEyebrow) heroEyebrow.textContent = vip.eyebrow || heroEyebrow.textContent;
+    if (heroTitle) heroTitle.textContent = vip.title || heroTitle.textContent;
+    if (heroText) heroText.textContent = vip.summary || heroText.textContent;
+    if (cardTitle) cardTitle.textContent = vip.cardTitle || cardTitle.textContent;
+    if (cardText) cardText.textContent = vip.cardText || cardText.textContent;
+    if (statusHeading) statusHeading.textContent = vip.statusTitle || statusHeading.textContent;
+    if (statusEyebrow) statusEyebrow.textContent = vip.statusEyebrow || statusEyebrow.textContent;
+    if (signedOutTitle) signedOutTitle.textContent = vip.signedOutTitle || signedOutTitle.textContent;
+    if (signedOutText) signedOutText.textContent = vip.signedOutText || signedOutText.textContent;
+    if (tiersTitle) tiersTitle.textContent = vip.tiersTitle || tiersTitle.textContent;
+  }
+
+  if (window.location.pathname.includes('custom.html') || document.querySelector('.custom-section')) {
+    const custom = content.custom || {};
+    const heroEyebrow = document.querySelector('.vip-hero .eyebrow');
+    const heroTitle = document.querySelector('.vip-hero h1');
+    const heroText = document.querySelector('.vip-hero .hero-text');
+    const cardTitle = document.querySelector('.vip-hero-card h2');
+    const cardText = document.querySelector('.vip-hero-card p');
+    const sectionEyebrow = document.querySelector('.custom-section .section-heading .eyebrow');
+    const sectionNote = document.querySelector('.custom-section-note');
+    const steps = document.querySelectorAll('.custom-aside .process-card');
+    if (heroEyebrow) heroEyebrow.textContent = custom.eyebrow || heroEyebrow.textContent;
+    if (heroTitle) heroTitle.textContent = custom.title || heroTitle.textContent;
+    if (heroText) heroText.textContent = custom.summary || heroText.textContent;
+    if (cardTitle) cardTitle.textContent = custom.cardTitle || cardTitle.textContent;
+    if (cardText) cardText.textContent = custom.cardText || cardText.textContent;
+    if (sectionEyebrow) sectionEyebrow.textContent = custom.sectionEyebrow || sectionEyebrow.textContent;
+    if (sectionNote) sectionNote.textContent = custom.sectionNote || sectionNote.textContent;
+    custom.processSteps?.forEach((step, index) => {
+      const card = steps[index];
+      if (!card) return;
+      const title = card.querySelector('h3');
+      const text = card.querySelector('p');
+      if (title) title.textContent = step.title;
+      if (text) text.textContent = step.text;
+    });
+  }
+
+  if (document.querySelector('.store-hero')) {
+    const home = content.homepage || {};
+    const eyebrow = document.querySelector('.store-hero .eyebrow');
+    const title = document.querySelector('.store-hero h1');
+    const summary = document.querySelector('.store-hero .hero-text');
+    const actions = document.querySelectorAll('.store-hero .hero-actions a');
+    const heroStats = document.querySelectorAll('.hero-stats article');
+    const heroCards = document.querySelectorAll('.store-hero-visuals .hero-display-card');
+    const marketPills = document.querySelectorAll('.market-strip .market-pill');
+    const panels = document.querySelectorAll('.homepage-panels .homepage-panel');
+    const runwayCards = document.querySelectorAll('.feature-runway-card');
+
+    if (eyebrow) eyebrow.textContent = home.eyebrow || eyebrow.textContent;
+    if (title) title.textContent = home.title || title.textContent;
+    if (summary) summary.textContent = home.summary || summary.textContent;
+    if (actions[0] && home.actions?.[0]) {
+      actions[0].textContent = home.actions[0].label;
+      actions[0].setAttribute('href', home.actions[0].href);
+    }
+    if (actions[1] && home.actions?.[1]) {
+      actions[1].textContent = home.actions[1].label;
+      actions[1].setAttribute('href', home.actions[1].href);
+    }
+    home.stats?.forEach((stat, index) => {
+      const card = heroStats[index];
+      if (!card) return;
+      const strong = card.querySelector('strong');
+      const span = card.querySelector('span');
+      if (strong) strong.textContent = stat.label;
+      if (span) span.textContent = stat.detail;
+    });
+    home.heroCards?.forEach((cardData, index) => {
+      const card = heroCards[index];
+      if (!card) return;
+      const tag = card.querySelector('.tag');
+      const heading = card.querySelector('h3');
+      if (tag) tag.textContent = cardData.tag;
+      if (heading) heading.textContent = cardData.title;
+    });
+    home.pills?.forEach((pillText, index) => {
+      if (marketPills[index]) marketPills[index].textContent = pillText;
+    });
+    home.panels?.forEach((panelData, index) => {
+      const panel = panels[index];
+      if (!panel) return;
+      const eyebrowEl = panel.querySelector('.eyebrow');
+      const titleEl = panel.querySelector('h3');
+      if (eyebrowEl) eyebrowEl.textContent = panelData.eyebrow;
+      if (titleEl) titleEl.textContent = panelData.title;
+    });
+    home.features?.forEach((feature, index) => {
+      const card = runwayCards[index];
+      if (!card) return;
+      const titleEl = card.querySelector('h3');
+      const textEl = card.querySelector('p');
+      if (titleEl) titleEl.textContent = feature.title;
+      if (textEl) textEl.textContent = feature.text;
+    });
+  }
 }
 
 // ==================== PRODUCT MANAGEMENT ====================
@@ -159,74 +288,79 @@ async function loadProducts(options = {}) {
 }
 
 function updateHomepageHighlights() {
-  const heroStats = document.querySelectorAll('.hero-stats article');
-  const heroCards = document.querySelectorAll('.store-hero-visuals .hero-display-card');
-  const marketPills = document.querySelectorAll('.market-strip .market-pill');
-
-  if (!heroStats.length && !heroCards.length && !marketPills.length) {
-    return;
-  }
-
   const products = appState.products || [];
   const featuredProducts = products.filter((product) => product.isFeatured).slice(0, 2);
-  const displayProducts = featuredProducts.length ? featuredProducts : products.slice(0, 2);
   const lowestPrice = products.length ? Math.min(...products.map((product) => product.finalPrice)) : 0;
   const highestPrice = products.length ? Math.max(...products.map((product) => product.finalPrice)) : 0;
   const categoryCount = new Set(products.map((product) => product.category)).size;
+  const heroStats = document.querySelectorAll('.hero-stats article');
+  const marketPills = document.querySelectorAll('.market-strip .market-pill');
+  const panels = document.querySelectorAll('.homepage-panels .homepage-panel');
+  const runwayCards = document.querySelectorAll('.feature-runway-card');
 
   if (heroStats[0]) {
     const strong = heroStats[0].querySelector('strong');
     const span = heroStats[0].querySelector('span');
-    if (strong) strong.textContent = `${products.length || 0} Live Pieces`;
-    if (span) span.textContent = `${categoryCount || 0} categories updated from the backend`;
+    if (strong) strong.textContent = `${products.length} Live Pieces`;
+    if (span) span.textContent = `${categoryCount} categories refreshed from the backend`;
   }
 
   if (heroStats[1]) {
     const strong = heroStats[1].querySelector('strong');
     const span = heroStats[1].querySelector('span');
-    if (strong) strong.textContent = `${displayProducts.length || 0} Featured Picks`;
-    if (span) span.textContent = displayProducts.length
-      ? `Top styles refreshed from the live catalog`
-      : `Featured styles will appear once products load`;
+    if (strong) strong.textContent = `${featuredProducts.length || Math.min(products.length, 2)} Featured Picks`;
+    if (span) {
+      span.textContent = featuredProducts.length
+        ? 'Top styles loaded from the current catalog'
+        : 'Featured styles will appear as soon as the catalog loads';
+    }
   }
 
   if (heroStats[2]) {
     const strong = heroStats[2].querySelector('strong');
     const span = heroStats[2].querySelector('span');
-    if (strong) strong.textContent = highestPrice ? `From ${formatPrice(lowestPrice)}` : 'Live Pricing';
-    if (span) span.textContent = highestPrice
-      ? `Up to ${formatPrice(highestPrice)} across the catalog`
-      : 'Pricing will appear when the catalog loads';
-  }
-
-  if (heroCards[0]) {
-    const tag = heroCards[0].querySelector('.tag');
-    const title = heroCards[0].querySelector('h3');
-    if (tag) tag.textContent = displayProducts[0]?.category || 'Live Catalog';
-    if (title) {
-      title.textContent = displayProducts[0]
-        ? `${displayProducts[0].name} at ${formatPrice(displayProducts[0].finalPrice)}`
-        : 'Featured styles will appear here';
+    if (strong) strong.textContent = lowestPrice ? `From Rs ${lowestPrice}` : 'Live Pricing';
+    if (span) {
+      span.textContent = highestPrice
+        ? `Up to Rs ${highestPrice} across the catalog`
+        : 'Pricing comes from the live backend';
     }
   }
 
-  if (heroCards[1]) {
-    const tag = heroCards[1].querySelector('.tag');
-    const title = heroCards[1].querySelector('h3');
-    if (tag) tag.textContent = displayProducts[1]?.category || 'Trending';
-    if (title) {
-      title.textContent = displayProducts[1]
-        ? `${displayProducts[1].name} with ${displayProducts[1].audience.toLowerCase()} appeal`
-        : 'More live styles load from the backend';
-    }
+  if (marketPills[0]) marketPills[0].textContent = `${products.length} live styles`;
+  if (marketPills[1]) marketPills[1].textContent = `${categoryCount} style families`;
+  if (marketPills[2]) marketPills[2].textContent = `${featuredProducts.length} featured picks`;
+  if (marketPills[3]) marketPills[3].textContent = lowestPrice ? `From Rs ${lowestPrice}` : 'Backend pricing';
+  if (marketPills[4]) marketPills[4].textContent = 'Live shopping experience';
+
+  if (panels[0]) {
+    const title = panels[0].querySelector('h3');
+    if (title) title.textContent = 'Professional polish built around current product data.';
+  }
+  if (panels[1]) {
+    const title = panels[1].querySelector('h3');
+    if (title) title.textContent = 'Premium ceremonial looks pulled from the live catalog.';
+  }
+  if (panels[2]) {
+    const title = panels[2].querySelector('h3');
+    if (title) title.textContent = 'Statement pieces that refresh as the catalog changes.';
+  }
+  if (panels[3]) {
+    const title = panels[3].querySelector('h3');
+    if (title) title.textContent = 'Refined comfort with backend-fed availability.';
   }
 
-  if (marketPills.length >= 5) {
-    marketPills[0].textContent = `${products.length || 0} live styles`;
-    marketPills[1].textContent = `${categoryCount || 0} style families`;
-    marketPills[2].textContent = featuredProducts.length ? `${featuredProducts.length} featured picks` : 'Live catalog feed';
-    marketPills[3].textContent = highestPrice ? `From ${formatPrice(lowestPrice)}` : 'Backend pricing';
-    marketPills[4].textContent = api.isAuthenticated() ? 'Signed-in shopping' : 'Live shopping experience';
+  if (runwayCards[0]) {
+    const title = runwayCards[0].querySelector('h3');
+    const text = runwayCards[0].querySelector('p');
+    if (title) title.textContent = 'VIP Access';
+    if (text) text.textContent = 'Membership pricing and perks are pulled from live tier data.';
+  }
+  if (runwayCards[1]) {
+    const title = runwayCards[1].querySelector('h3');
+    const text = runwayCards[1].querySelector('p');
+    if (title) title.textContent = 'Custom Studio';
+    if (text) text.textContent = 'Custom orders and follow-up flows are backed by the API.';
   }
 }
 

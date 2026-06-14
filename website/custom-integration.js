@@ -16,6 +16,7 @@ const customState = {
     colorPreferences: [],
     measurements: {},
   },
+  siteContent: null,
 };
 
 // DOM Elements
@@ -35,6 +36,8 @@ const defaultCustomSelection = {
 };
 
 async function initializeCustomStudio() {
+  await loadSiteContent();
+
   setupPrototypeCustomOptions();
 
   if (!customOrdersList) {
@@ -56,6 +59,46 @@ async function initializeCustomStudio() {
     console.error('Error initializing custom studio:', error);
     showCustomMessage('Failed to load custom orders', 'error');
   }
+}
+
+async function loadSiteContent() {
+  try {
+    const response = await api.request('/site-content');
+    customState.siteContent = response.data || null;
+    applyCustomContent();
+  } catch (error) {
+    console.warn('Site content unavailable', error);
+  }
+}
+
+function applyCustomContent() {
+  const content = customState.siteContent?.custom;
+  if (!content) return;
+
+  const heroEyebrow = document.querySelector('.vip-hero .eyebrow');
+  const heroTitle = document.querySelector('.vip-hero h1');
+  const heroText = document.querySelector('.vip-hero .hero-text');
+  const cardTitle = document.querySelector('.vip-hero-card h2');
+  const cardText = document.querySelector('.vip-hero-card p');
+  const sectionEyebrow = document.querySelector('.custom-section .section-heading .eyebrow');
+  const sectionNote = document.querySelector('.custom-section-note');
+  const steps = document.querySelectorAll('.custom-aside .process-card');
+
+  if (heroEyebrow) heroEyebrow.textContent = content.eyebrow || heroEyebrow.textContent;
+  if (heroTitle) heroTitle.textContent = content.title || heroTitle.textContent;
+  if (heroText) heroText.textContent = content.summary || heroText.textContent;
+  if (cardTitle) cardTitle.textContent = content.cardTitle || cardTitle.textContent;
+  if (cardText) cardText.textContent = content.cardText || cardText.textContent;
+  if (sectionEyebrow) sectionEyebrow.textContent = content.sectionEyebrow || sectionEyebrow.textContent;
+  if (sectionNote) sectionNote.textContent = content.sectionNote || sectionNote.textContent;
+  content.processSteps?.forEach((step, index) => {
+    const card = steps[index];
+    if (!card) return;
+    const title = card.querySelector('h3');
+    const text = card.querySelector('p');
+    if (title) title.textContent = step.title;
+    if (text) text.textContent = step.text;
+  });
 }
 
 function readCustomSelection() {

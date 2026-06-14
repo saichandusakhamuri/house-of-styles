@@ -7,6 +7,7 @@ const vipState = {
   membershipTiers: [],
   userMembership: null,
   userProfile: null,
+  siteContent: null,
 };
 
 // DOM Elements
@@ -36,6 +37,8 @@ let stripeElements;
 let pendingUpgradeData = null;
 
 async function initializeVIP() {
+  await loadSiteContent();
+
   // Setup payment listeners
   if (closePaymentModalBtn) {
     closePaymentModalBtn.onclick = () => paymentModal.hidden = true;
@@ -78,6 +81,51 @@ async function initializeVIP() {
   } catch (error) {
     console.error('Error initializing VIP:', error);
     showVIPMessage('Failed to load membership information', 'error');
+  }
+}
+
+async function loadSiteContent() {
+  try {
+    const response = await api.request('/site-content');
+    vipState.siteContent = response.data || null;
+    applyVIPContent();
+  } catch (error) {
+    console.warn('Site content unavailable', error);
+  }
+}
+
+function applyVIPContent() {
+  const content = vipState.siteContent?.vip;
+  if (!content) return;
+
+  const heroEyebrow = document.querySelector('.vip-hero .eyebrow');
+  const heroTitle = document.querySelector('.vip-hero h1');
+  const heroText = document.querySelector('.vip-hero .hero-text');
+  const cardTitle = document.querySelector('.vip-hero-card h2');
+  const cardText = document.querySelector('.vip-hero-card p');
+  const statusSectionHeading = document.querySelector('.vip-status-section .section-heading h2');
+  const statusSectionEyebrow = document.querySelector('.vip-status-section .section-heading .eyebrow');
+  const signedOutTitle = document.querySelector('#vipSigninPrompt h3');
+  const signedOutText = document.querySelector('#vipSigninPrompt .hero-text');
+  const tiersTitle = document.querySelector('.vip-tiers-section .section-heading h2');
+  const benefitsCards = document.querySelectorAll('.vip-discount-grid .vip-discount-card');
+
+  if (heroEyebrow) heroEyebrow.textContent = content.eyebrow || heroEyebrow.textContent;
+  if (heroTitle) heroTitle.textContent = content.title || heroTitle.textContent;
+  if (heroText) heroText.textContent = content.summary || heroText.textContent;
+  if (cardTitle) cardTitle.textContent = content.cardTitle || cardTitle.textContent;
+  if (cardText) cardText.textContent = content.cardText || cardText.textContent;
+  if (statusSectionHeading) statusSectionHeading.textContent = content.statusTitle || statusSectionHeading.textContent;
+  if (statusSectionEyebrow) statusSectionEyebrow.textContent = content.statusEyebrow || statusSectionEyebrow.textContent;
+  if (signedOutTitle) signedOutTitle.textContent = content.signedOutTitle || signedOutTitle.textContent;
+  if (signedOutText) signedOutText.textContent = content.signedOutText || signedOutText.textContent;
+  if (tiersTitle) tiersTitle.textContent = content.tiersTitle || tiersTitle.textContent;
+  if (benefitsCards.length >= 4) {
+    content.benefits?.slice(0, 4).forEach((benefit, index) => {
+      const card = benefitsCards[index];
+      const strong = card?.querySelector('strong');
+      if (strong) strong.textContent = benefit;
+    });
   }
 }
 
