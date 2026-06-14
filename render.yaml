@@ -15,8 +15,12 @@ services:
         value: "10000"
       - key: CORS_ORIGIN
         sync: false # Set this to your Render Static Site URL
-      - key: OPENAI_API_KEY
+      - key: GEMINI_API_KEY
         sync: false # Add this secret in Render; never commit the key
+      - key: GEMINI_MODEL
+        value: gemini-3.5-flash
+      - key: OPENAI_API_KEY
+        sync: false # Optional fallback only
       - key: OPENAI_MODEL
         value: gpt-4.1-mini
 

@@ -6,6 +6,7 @@ const { staticMembershipTiers } = require('../data/staticMembershipTiers');
 
 const router = express.Router();
 
+const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-3.5-flash';
 const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-4.1-mini';
 
 const productCatalogText = staticProducts
@@ -68,7 +69,7 @@ const normalizeMessages = (messages) => {
     .filter((message) => message.content);
 };
 
-const extractOutputText = (body) => {
+const extractOpenAIOutputText = (body) => {
   if (body.output_text) {
     return body.output_text;
   }
@@ -83,6 +84,83 @@ const extractOutputText = (body) => {
 
   return parts.join('\n').trim();
 };
+
+const extractGeminiOutputText = (body) => {
+  const parts = [];
+  for (const candidate of body.candidates || []) {
+    for (const part of candidate.content?.parts || []) {
+      if (part.text) parts.push(part.text);
+    }
+  }
+
+  return parts.join('\n').trim();
+};
+
+const callGemini = ({ messages, pageContext }) =>
+  new Promise((resolve, reject) => {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      reject(new AppError('Stylist AI is not configured. Add GEMINI_API_KEY in Render environment variables.', 503));
+      return;
+    }
+
+    const contents = messages.map((message) => ({
+      role: message.role === 'assistant' ? 'model' : 'user',
+      parts: [{ text: message.content }],
+    }));
+
+    const payload = {
+      system_instruction: {
+        parts: [{ text: `${systemPrompt}\n\nCurrent website page: ${pageContext}` }],
+      },
+      contents,
+      generationConfig: {
+        maxOutputTokens: 500,
+      },
+    };
+
+    const body = JSON.stringify(payload);
+    const request = https.request(
+      {
+        hostname: 'generativelanguage.googleapis.com',
+        path: `/v1beta/models/${encodeURIComponent(GEMINI_MODEL)}:generateContent`,
+        method: 'POST',
+        headers: {
+          'x-goog-api-key': apiKey,
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(body),
+        },
+      },
+      (response) => {
+        let responseBody = '';
+        response.on('data', (chunk) => {
+          responseBody += chunk;
+        });
+        response.on('end', () => {
+          let parsedBody;
+          try {
+            parsedBody = JSON.parse(responseBody);
+          } catch {
+            parsedBody = { message: responseBody };
+          }
+
+          if (response.statusCode >= 400) {
+            reject(new AppError(parsedBody?.error?.message || 'Gemini request failed.', response.statusCode));
+            return;
+          }
+
+          resolve(parsedBody);
+        });
+      }
+    );
+
+    request.on('error', (error) => {
+      reject(new AppError(error.message || 'Gemini could not connect.', 502));
+    });
+
+    request.write(body);
+    request.end();
+  });
 
 const callOpenAI = (payload) =>
   new Promise((resolve, reject) => {
@@ -143,30 +221,41 @@ router.post('/stylist', async (req, res) => {
     throw new AppError('A message is required for Stylist.', 400);
   }
 
-  const input = [
-    {
-      role: 'system',
-      content: [
-        {
-          type: 'input_text',
-          text: `${systemPrompt}\n\nCurrent website page: ${pageContext}`,
-        },
-      ],
-    },
-    ...messages.map((message) => ({
-      role: message.role,
-      content: [{ type: 'input_text', text: message.content }],
-    })),
-  ];
+  let provider = 'gemini';
+  let model = GEMINI_MODEL;
+  let reply = '';
 
-  const aiResponse = await callOpenAI({
-    model: OPENAI_MODEL,
-    input,
-    max_output_tokens: 500,
-    temperature: 0.7,
-  });
+  if (process.env.GEMINI_API_KEY) {
+    const aiResponse = await callGemini({ messages, pageContext });
+    reply = extractGeminiOutputText(aiResponse);
+  } else {
+    provider = 'openai';
+    model = OPENAI_MODEL;
+    const input = [
+      {
+        role: 'system',
+        content: [
+          {
+            type: 'input_text',
+            text: `${systemPrompt}\n\nCurrent website page: ${pageContext}`,
+          },
+        ],
+      },
+      ...messages.map((message) => ({
+        role: message.role,
+        content: [{ type: 'input_text', text: message.content }],
+      })),
+    ];
 
-  const reply = extractOutputText(aiResponse);
+    const aiResponse = await callOpenAI({
+      model: OPENAI_MODEL,
+      input,
+      max_output_tokens: 500,
+      temperature: 0.7,
+    });
+
+    reply = extractOpenAIOutputText(aiResponse);
+  }
 
   if (!reply) {
     throw new AppError('Stylist AI returned an empty response.', 502);
@@ -174,7 +263,8 @@ router.post('/stylist', async (req, res) => {
 
   res.json({
     success: true,
-    model: OPENAI_MODEL,
+    provider,
+    model,
     reply,
   });
 });
