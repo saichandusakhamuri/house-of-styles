@@ -78,7 +78,7 @@
           <div class="agent-title">
             <span class="agent-avatar">HS</span>
             <span>
-              <strong>HS AI</strong>
+              <strong>Stylist</strong>
               <small>House of Styles assistant</small>
             </span>
           </div>
