@@ -2021,6 +2021,7 @@ button {
   border-radius: 16px;
   line-height: 1.45;
   font-size: 0.9rem;
+  white-space: pre-line;
 }
 
 .agent-message.bot {
