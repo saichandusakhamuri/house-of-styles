@@ -573,32 +573,14 @@ router.post('/stylist', async (req, res) => {
     throw new AppError('A message is required for Stylist.', 400);
   }
 
-  let provider = 'gemini';
-  let model = GEMINI_MODEL;
+  let provider = 'openrouter';
+  let model = OPENROUTER_MODEL;
   let reply = '';
-  let lastGeminiError = null;
   let lastOpenRouterError = null;
+  let lastGeminiError = null;
   let lastOpenAIError = null;
 
-  if (geminiApiKeys.length) {
-    for (const apiKey of geminiApiKeys) {
-      try {
-        const aiResponse = await callGemini({ messages, pageContext, apiKey });
-        reply = extractGeminiOutputText(aiResponse);
-        const finishReason = getGeminiFinishReason(aiResponse);
-        if (finishReason && finishReason !== 'STOP') {
-          throw new AppError(`Gemini stopped before completing the answer. Finish reason: ${finishReason}.`, 502);
-        }
-
-        lastGeminiError = null;
-        break;
-      } catch (error) {
-        lastGeminiError = error;
-      }
-    }
-  }
-
-  if (!reply && openRouterApiKeys.length) {
+  if (openRouterApiKeys.length) {
     for (const apiKey of openRouterApiKeys) {
       try {
         const aiResponse = await callOpenRouter({
@@ -613,6 +595,26 @@ router.post('/stylist', async (req, res) => {
         break;
       } catch (error) {
         lastOpenRouterError = error;
+      }
+    }
+  }
+
+  if (!reply && geminiApiKeys.length) {
+    provider = 'gemini';
+    model = GEMINI_MODEL;
+    for (const apiKey of geminiApiKeys) {
+      try {
+        const aiResponse = await callGemini({ messages, pageContext, apiKey });
+        reply = extractGeminiOutputText(aiResponse);
+        const finishReason = getGeminiFinishReason(aiResponse);
+        if (finishReason && finishReason !== 'STOP') {
+          throw new AppError(`Gemini stopped before completing the answer. Finish reason: ${finishReason}.`, 502);
+        }
+
+        lastGeminiError = null;
+        break;
+      } catch (error) {
+        lastGeminiError = error;
       }
     }
   }
@@ -637,8 +639,8 @@ router.post('/stylist', async (req, res) => {
 
   if (!reply) {
     throw (
-      lastGeminiError ||
       lastOpenRouterError ||
+      lastGeminiError ||
       lastOpenAIError ||
       new AppError('Stylist AI returned an empty response.', 502)
     );
