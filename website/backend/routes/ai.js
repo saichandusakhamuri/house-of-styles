@@ -6,7 +6,7 @@ const { staticMembershipTiers } = require('../data/staticMembershipTiers');
 
 const router = express.Router();
 
-const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
+const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-3.5-flash';
 const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-4.1-mini';
 
 const productCatalogText = staticProducts
