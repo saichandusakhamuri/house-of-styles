@@ -210,20 +210,6 @@ const reasoningMarkers = [
   /^3\.\s+/m,
 ];
 
-const looksLikeReasoningDump = (text) => reasoningMarkers.some((pattern) => pattern.test(text));
-
-const isQuotaOrRateLimitError = (error) => {
-  const statusCode = Number(error?.statusCode || error?.status || 0);
-  const message = String(error?.message || '').toLowerCase();
-  return (
-    statusCode === 429 ||
-    message.includes('quota exceeded') ||
-    message.includes('rate limit') ||
-    message.includes('resource_exhausted') ||
-    message.includes('too many requests')
-  );
-};
-
 const stripReasoningPreamble = (text) => {
   const lines = String(text || '')
     .split('\n')
@@ -299,7 +285,7 @@ const isStyleRequest = (messages) => {
 
 const cleanFallbackReply = (messages, reply) => {
   const normalized = collapseToSingleCustomerSentence(stripReasoningPreamble(reply));
-  if (normalized && !looksLikeReasoningDump(normalized)) {
+  if (normalized) {
     return normalized;
   }
 
@@ -308,86 +294,6 @@ const cleanFallbackReply = (messages, reply) => {
   }
 
   return normalized || 'Could you share a bit more detail so I can help?';
-};
-
-const rewriteCustomerFacingReply = async ({ rawReply, pageContext, geminiApiKeys = [], openRouterApiKeys = [] }) => {
-  const apiKey = geminiApiKeys[0] || openRouterApiKeys[0] || process.env.OPENAI_API_KEY;
-  if (!apiKey) {
-    return stripReasoningPreamble(rawReply);
-  }
-
-  const rewritePrompt = `
-Rewrite the text below into a clean customer-facing reply for the House of Styles AI assistant.
-- Remove all hidden reasoning, analysis steps, checklists, and meta commentary.
-- Keep only the final answer or one short follow-up question.
-- If the text is a follow-up request, output exactly one short sentence and exactly one question mark.
-- Do not include bullets, numbered steps, headings, labels, or multiple paragraphs.
-- Do not mention that you rewrote anything.
-- Keep the tone natural, mature, and helpful.
-
-Current website page: ${pageContext}
-
-Text to rewrite:
-${rawReply}
-`.trim();
-
-  try {
-    if (geminiApiKeys.length) {
-      const response = await callGemini({
-        pageContext,
-        messages: [
-          {
-            role: 'user',
-            content: rewritePrompt,
-          },
-        ],
-        apiKey,
-      });
-      const rewritten = extractGeminiOutputText(response);
-      return rewritten || stripReasoningPreamble(rawReply);
-    }
-
-    if (openRouterApiKeys.length) {
-      const response = await callOpenRouter({
-        model: OPENROUTER_MODEL,
-        messages: [
-          {
-            role: 'user',
-            content: rewritePrompt,
-          },
-        ],
-        apiKey,
-      });
-      const rewritten = extractOpenRouterOutputText(response);
-      return rewritten || stripReasoningPreamble(rawReply);
-    }
-
-    const response = await callOpenAI({
-      model: OPENAI_MODEL,
-      input: [
-        {
-          role: 'system',
-          content: [
-            {
-              type: 'input_text',
-              text: 'Rewrite customer-facing copy only. Remove all reasoning, analysis, and checklist text.',
-            },
-          ],
-        },
-        {
-          role: 'user',
-          content: [{ type: 'input_text', text: rewritePrompt }],
-        },
-      ],
-      max_output_tokens: 300,
-      temperature: 0.2,
-    });
-
-    const rewritten = extractOpenAIOutputText(response);
-    return rewritten || stripReasoningPreamble(rawReply);
-  } catch {
-    return stripReasoningPreamble(rawReply);
-  }
 };
 
 const callGemini = ({ messages, pageContext, apiKey }) =>
@@ -409,7 +315,7 @@ const callGemini = ({ messages, pageContext, apiKey }) =>
       contents,
       generationConfig: {
         temperature: 0.2,
-        maxOutputTokens: 500,
+        maxOutputTokens: 220,
       },
     };
 
@@ -499,7 +405,7 @@ const callOpenRouter = ({ messages, model, apiKey }) =>
             return;
           }
 
-          resolve(parsedBody);
+      resolve(parsedBody);
         });
       }
     );
@@ -566,8 +472,8 @@ const callOpenAI = (payload) =>
 router.post('/stylist', async (req, res) => {
   const messages = normalizeMessages(req.body.messages);
   const pageContext = String(req.body.pageContext || 'Storefront').slice(0, 80);
-  const geminiApiKeys = getGeminiApiKeys();
   const openRouterApiKeys = getOpenRouterApiKeys();
+  const geminiApiKeys = getGeminiApiKeys();
 
   if (!messages.length) {
     throw new AppError('A message is required for Stylist.', 400);
@@ -578,7 +484,6 @@ router.post('/stylist', async (req, res) => {
   let reply = '';
   let lastOpenRouterError = null;
   let lastGeminiError = null;
-  let lastOpenAIError = null;
 
   if (openRouterApiKeys.length) {
     for (const apiKey of openRouterApiKeys) {
@@ -599,7 +504,7 @@ router.post('/stylist', async (req, res) => {
     }
   }
 
-  if (!reply && geminiApiKeys.length) {
+  if (!reply && !openRouterApiKeys.length && geminiApiKeys.length) {
     provider = 'gemini';
     model = GEMINI_MODEL;
     for (const apiKey of geminiApiKeys) {
@@ -619,35 +524,8 @@ router.post('/stylist', async (req, res) => {
     }
   }
 
-  if (!reply && process.env.OPENAI_API_KEY) {
-    provider = 'openai';
-    model = OPENAI_MODEL;
-    try {
-      const aiResponse = await callOpenAI({
-        model: OPENAI_MODEL,
-        input: buildOpenAIInput(pageContext, messages),
-        max_output_tokens: 500,
-        temperature: 0.2,
-      });
-
-      reply = extractOpenAIOutputText(aiResponse);
-      lastOpenAIError = null;
-    } catch (error) {
-      lastOpenAIError = error;
-    }
-  }
-
   if (!reply) {
-    throw (
-      lastOpenRouterError ||
-      lastGeminiError ||
-      lastOpenAIError ||
-      new AppError('Stylist AI returned an empty response.', 502)
-    );
-  }
-
-  if (looksLikeReasoningDump(reply)) {
-    reply = await rewriteCustomerFacingReply({ rawReply: reply, pageContext, geminiApiKeys, openRouterApiKeys });
+    throw lastOpenRouterError || lastGeminiError || new AppError('Stylist AI returned an empty response.', 502);
   }
 
   reply = cleanFallbackReply(messages, reply);
