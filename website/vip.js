@@ -620,7 +620,11 @@ async function openGatewayCheckout() {
   try {
     setPaymentMessage("Creating secure payment order...");
     const orderResponse = await createGatewayOrder();
-    const order = orderResponse.order || {};
+    const order = orderResponse.order || {
+      id: orderResponse.order_id,
+      amount: orderResponse.amount,
+      currency: orderResponse.currency,
+    };
     const customer = normalizeCustomer(pendingPaymentContext.customer || loadCurrentCustomer());
     const method = pendingPaymentContext.gatewayMethod || "card";
     const checkout = new window.Razorpay({
@@ -641,11 +645,16 @@ async function openGatewayCheckout() {
       },
       ...getGatewayDisplayConfig(method, pendingPaymentContext.gatewayRail),
       handler: completeGatewayPayment,
-      modal: {
+     modal: {
         ondismiss() {
           setPaymentMessage("Secure checkout closed before payment was confirmed.", "error");
         },
       },
+    });
+
+    checkout.on("payment.failed", function (response) {
+      const reason = response?.error?.description || response?.error?.reason || "Payment failed.";
+      setPaymentMessage(reason, "error");
     });
 
     checkout.open();

@@ -12,6 +12,7 @@ const { logger } = require('./config/logger');
 const errorHandler = require('./middleware/errorHandler');
 const productRoutes = require('./routes/products');
 const paymentRoutes = require('./routes/payments');
+const { handleCreateOrder, handleVerifyPayment } = paymentRoutes;
 const siteContentRoutes = require('./routes/site-content');
 const aiRoutes = require('./routes/ai');
 const { staticMembershipTiers } = require('./data/staticMembershipTiers');
@@ -68,6 +69,8 @@ app.get('/api/health', (req, res) => {
 
 app.use('/api/products', productRoutes);
 app.use('/api/payments', paymentRoutes);
+app.post('/api/create-order', handleCreateOrder);
+app.post('/api/verify-payment', handleVerifyPayment);
 app.use('/api/site-content', siteContentRoutes);
 app.use('/api/ai', aiRoutes);
 

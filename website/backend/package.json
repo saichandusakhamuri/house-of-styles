@@ -29,6 +29,7 @@
     "jsonwebtoken": "^9.0.2",
     "morgan": "^1.10.0",
     "rate-limiter-flexible": "^2.4.1",
+    "razorpay": "^2.9.6",
     "socket.io": "^4.7.1",
     "stripe": "^13.3.0",
     "winston": "^3.10.0",

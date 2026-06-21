@@ -1,6 +1,6 @@
 const express = require('express');
 const crypto = require('crypto');
-const https = require('https');
+const Razorpay = require('razorpay');
 const { AppError } = require('../middleware/errorHandler');
 
 const router = express.Router();
@@ -16,59 +16,29 @@ const getRazorpayCredentials = () => {
   return { keyId, keySecret };
 };
 
-const createRazorpayOrder = (payload) =>
-  new Promise((resolve, reject) => {
-    let credentials;
-    try {
-      credentials = getRazorpayCredentials();
-    } catch (error) {
-      reject(error);
-      return;
+const getRazorpayClient = () => {
+  const { keyId, keySecret } = getRazorpayCredentials();
+  return new Razorpay({
+    key_id: keyId,
+    key_secret: keySecret,
+  });
+};
+
+const createRazorpayOrder = async (payload) => {
+  try {
+    const client = getRazorpayClient();
+    return await client.orders.create(payload);
+  } catch (error) {
+    const statusCode = Number(error?.statusCode || error?.status || 0);
+    const message = String(error?.error?.description || error?.description || error?.message || 'Razorpay order creation failed.');
+
+    if (statusCode === 401 || /unauthori[sz]ed|authentication/i.test(message)) {
+      throw new AppError(message, 401);
     }
 
-    const { keyId, keySecret } = credentials;
-    const body = JSON.stringify(payload);
-    const request = https.request(
-      {
-        hostname: 'api.razorpay.com',
-        path: '/v1/orders',
-        method: 'POST',
-        headers: {
-          Authorization: `Basic ${Buffer.from(`${keyId}:${keySecret}`).toString('base64')}`,
-          'Content-Type': 'application/json',
-          'Content-Length': Buffer.byteLength(body),
-        },
-      },
-      (response) => {
-        let responseBody = '';
-        response.on('data', (chunk) => {
-          responseBody += chunk;
-        });
-        response.on('end', () => {
-          let parsedBody;
-          try {
-            parsedBody = JSON.parse(responseBody);
-          } catch {
-            parsedBody = { message: responseBody };
-          }
-
-          if (response.statusCode >= 400) {
-            reject(new AppError(parsedBody?.error?.description || 'Razorpay order creation failed.', response.statusCode));
-            return;
-          }
-
-          resolve(parsedBody);
-        });
-      }
-    );
-
-    request.on('error', (error) => {
-      reject(new AppError(error.message || 'Razorpay order request failed.', 502));
-    });
-
-    request.write(body);
-    request.end();
-  });
+    throw new AppError(message, statusCode >= 400 ? statusCode : 500);
+  }
+};
 
 const verifyRazorpaySignature = ({ orderId, paymentId, signature }) => {
   const { keySecret } = getRazorpayCredentials();
@@ -86,13 +56,13 @@ const verifyRazorpaySignature = ({ orderId, paymentId, signature }) => {
   );
 };
 
-router.post('/razorpay-order', async (req, res) => {
+const handleCreateOrder = async (req, res) => {
   const amount = Number(req.body.amount);
   const currency = String(req.body.currency || 'INR').toUpperCase();
   const receipt = String(req.body.receipt || `hos_${Date.now()}`).slice(0, 40);
   const notes = req.body.notes && typeof req.body.notes === 'object' ? req.body.notes : {};
 
-  if (!Number.isFinite(amount) || amount <= 0) {
+  if (!Number.isFinite(amount) || amount < 100) {
     throw new AppError('A valid payment amount is required.', 400);
   }
 
@@ -110,11 +80,14 @@ router.post('/razorpay-order', async (req, res) => {
   res.json({
     success: true,
     keyId: process.env.RAZORPAY_KEY_ID,
+    order_id: order.id,
+    amount: order.amount,
+    currency: order.currency,
     order,
   });
-});
+};
 
-router.post('/razorpay-verify', async (req, res) => {
+const handleVerifyPayment = async (req, res) => {
   const orderId = String(req.body.razorpay_order_id || '').trim();
   const paymentId = String(req.body.razorpay_payment_id || '').trim();
   const signature = String(req.body.razorpay_signature || '').trim();
@@ -132,7 +105,10 @@ router.post('/razorpay-verify', async (req, res) => {
     orderId,
     paymentId,
   });
-});
+};
+
+router.post(['/razorpay-order', '/create-order'], handleCreateOrder);
+router.post(['/razorpay-verify', '/verify-payment'], handleVerifyPayment);
 
 router.all('*', (req, res) => {
   res.status(501).json({
@@ -142,3 +118,5 @@ router.all('*', (req, res) => {
 });
 
 module.exports = router;
+module.exports.handleCreateOrder = handleCreateOrder;
+module.exports.handleVerifyPayment = handleVerifyPayment;
