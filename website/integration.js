@@ -8,6 +8,7 @@ const API_BASE_URL = window.HOS_CONFIG?.apiBaseUrl || 'http://localhost:5001/api
 const STORAGE_KEYS = {
   cart: 'houseOfTailor-cart',
   favorites: 'houseOfTailor-favorites',
+  orders: 'houseOfTailor-orders',
   customOrders: 'houseOfTailor-custom-orders',
   token: 'houseOfTailor-token',
   user: 'houseOfTailor-user',
@@ -22,6 +23,7 @@ const appState = {
   sort: 'featured',
   cart: loadStorage(STORAGE_KEYS.cart, []),
   favorites: loadStorage(STORAGE_KEYS.favorites, []),
+  orders: loadStorage(STORAGE_KEYS.orders, []),
   products: [],
   siteContent: null,
   currentUser: api.getUser(),
@@ -63,10 +65,18 @@ const confirmAccountModalBtn = document.getElementById('confirmAccountModal');
 const paymentModal = document.getElementById('paymentModal');
 const closePaymentModalBtn = document.getElementById('closePaymentModal');
 const checkoutButton = document.getElementById('checkoutButton');
-const stripePaymentBtn = document.getElementById('stripePaymentBtn');
+const creditCardPaymentBtn = document.getElementById('creditCardPaymentBtn');
+const debitCardPaymentBtn = document.getElementById('debitCardPaymentBtn');
+const netbankingPaymentBtn = document.getElementById('netbankingPaymentBtn');
+const gatewayUPIPaymentBtn = document.getElementById('gatewayUPIPaymentBtn');
 const upiPaymentBtn = document.getElementById('upiPaymentBtn');
-const stripePaymentForm = document.getElementById('stripePaymentForm');
+const openGatewayCheckoutButton = document.getElementById('openGatewayCheckoutButton');
+const gatewayPaymentForm = document.getElementById('gatewayPaymentForm');
+const gatewayMethodValue = document.getElementById('gatewayMethodValue');
+const gatewayAmountValue = document.getElementById('gatewayAmountValue');
+const gatewayReferenceValue = document.getElementById('gatewayReferenceValue');
 const upiPaymentForm = document.getElementById('upiPaymentForm');
+const paymentMessage = document.getElementById('paymentMessage');
 const upiIdInput = document.getElementById('upiIdInput');
 const submitUPIPaymentBtn = document.getElementById('submitUPIPayment');
 
@@ -86,6 +96,7 @@ try {
 
 let stripeElements;
 let currentOrderId;
+let pendingPaymentContext = null;
 
 // ==================== INITIALIZATION ====================
 
@@ -276,6 +287,7 @@ async function loadProducts(options = {}) {
 
     const apiProducts = Array.isArray(response.data) ? response.data : [];
     appState.products = apiProducts.map(normalizeProduct);
+    normalizeStoredCart();
     renderProducts();
     updateHomepageHighlights();
   } catch (error) {
@@ -496,7 +508,9 @@ async function addToCart(product) {
 }
 
 function removeFromCart(productId) {
-  appState.cart = appState.cart.filter((item) => item.productId !== productId);
+  appState.cart = appState.cart.filter(
+    (item) => String(item.productId || item.id || item._id) !== String(productId)
+  );
   saveStorage(STORAGE_KEYS.cart, appState.cart);
   updateCartDisplay();
 }
@@ -531,20 +545,23 @@ function renderCartItems() {
   }
 
   appState.cart.forEach((item) => {
+    const displayItem = normalizeCartItem(item);
+    if (!displayItem) return;
+
     const cartCard = document.createElement('article');
     cartCard.className = 'cart-item';
     cartCard.innerHTML = `
       <div>
-        <h3>${item.productName}</h3>
-        <small>${item.size} • Qty ${item.quantity}</small>
-        <p>${formatPrice(item.price)} each</p>
+        <h3>${displayItem.productName}</h3>
+        <small>${displayItem.size} • Qty ${displayItem.quantity}</small>
+        <p>${formatPrice(displayItem.price)} each</p>
       </div>
       <div class="cart-item-actions">
-        <button class="secondary-btn small remove-cart-btn" data-product-id="${item.productId}">Remove</button>
+        <button class="secondary-btn small remove-cart-btn" data-product-id="${displayItem.productId}">Remove</button>
         <div class="quantity-control">
           <label>
             Qty
-            <input type="number" min="1" value="${item.quantity}" class="cart-quantity-input" data-product-id="${item.productId}" />
+            <input type="number" min="1" value="${displayItem.quantity}" class="cart-quantity-input" data-product-id="${displayItem.productId}" />
           </label>
         </div>
       </div>
@@ -569,6 +586,8 @@ function renderCartItems() {
 }
 
 function updateCartDisplay() {
+  normalizeStoredCart();
+
   if (cartCount) {
     const totalQuantity = appState.cart.reduce((sum, item) => sum + item.quantity, 0);
     cartCount.textContent = String(totalQuantity);
@@ -578,6 +597,50 @@ function updateCartDisplay() {
     cartTotal.textContent = formatPrice(total);
   }
   renderCartItems();
+}
+
+function getCartTotal() {
+  return appState.cart.reduce((sum, item) => {
+    const normalized = normalizeCartItem(item);
+    return sum + Number(normalized?.price || 0) * Number(normalized?.quantity || 1);
+  }, 0);
+}
+
+function saveStoredOrders() {
+  saveStorage(STORAGE_KEYS.orders, appState.orders);
+}
+
+function createLocalOrderRecord() {
+  const order = {
+    id: pendingPaymentContext.reference,
+    orderNumber: pendingPaymentContext.reference,
+    paymentReference: pendingPaymentContext.reference,
+    customerName: pendingPaymentContext.customer?.firstName || pendingPaymentContext.customer?.name || 'Customer',
+    customerEmail: pendingPaymentContext.customer?.email || '',
+    items: appState.cart.map((item) => ({ ...normalizeCartItem(item) })),
+    totalAmount: pendingPaymentContext.amount,
+    orderStatus: 'payment_pending',
+    paymentStatus: 'pending',
+    paymentMethod: '',
+    createdAt: new Date().toISOString(),
+  };
+
+  appState.orders.unshift(order);
+  saveStoredOrders();
+  return order;
+}
+
+function markLocalOrderPaid(reference, paymentMethod = 'Razorpay') {
+  const order = appState.orders.find((item) => item.paymentReference === reference || item.id === reference);
+  if (!order) {
+    return;
+  }
+
+  order.orderStatus = 'confirmed';
+  order.paymentStatus = 'paid';
+  order.paymentMethod = paymentMethod;
+  order.paidAt = new Date().toISOString();
+  saveStoredOrders();
 }
 
 function syncDrawerOverlay() {
@@ -616,106 +679,232 @@ async function checkoutCart() {
     return;
   }
 
-  try {
-    const orderData = {
-      items: appState.cart.map((item) => ({
-        productId: item.productId,
-        quantity: item.quantity,
-        size: item.size,
-      })),
-      shippingAddress: {
-        street: '123 Style Street',
-        city: 'Mumbai',
-        state: 'Maharashtra',
-        zipCode: '400001',
-        country: 'India',
-      },
-    };
+  pendingPaymentContext = {
+    type: 'order',
+    amount: getCartTotal(),
+    reference: createPaymentReference('ORDER'),
+    note: 'House of Styles order',
+    customer: getCurrentUser(),
+    gatewayMethod: 'card',
+    gatewayRail: 'credit',
+  };
+  createLocalOrderRecord();
 
-    const response = await api.createOrder(orderData);
-    currentOrderId = response.data._id;
-
-    // Show payment modal instead of just clearing cart
-    paymentModal.hidden = false;
-    closeCart();
-
-    showNotification(`Order created! Please select payment method.`, 'success');
-  } catch (error) {
-    console.error('Checkout error:', error);
-    showNotification(error.message || 'Checkout failed. Please try again.', 'error');
-  }
+  paymentModal.hidden = false;
+  closeCart();
+  showGatewayHandoff('card', 'credit');
+  showNotification('Choose a payment method to complete checkout.', 'info');
 }
 
 // ==================== PAYMENT HANDLING ====================
 
-async function handleStripePayment() {
-  stripePaymentForm.hidden = false;
-  upiPaymentForm.hidden = true;
+function showGatewayHandoff(method, rail = 'credit') {
+  ensurePendingPaymentContext();
+  pendingPaymentContext.gatewayMethod = method;
+  pendingPaymentContext.gatewayRail = rail;
 
-  try {
-    if (!currentOrderId) {
-      showNotification('Please create an order before payment.', 'warning');
-      return;
-    }
+  if (gatewayPaymentForm) gatewayPaymentForm.hidden = false;
+  if (upiPaymentForm) upiPaymentForm.hidden = true;
 
-    if (!stripe) {
-      showNotification('Card payments are not configured yet.', 'error');
-      return;
-    }
-
-    const { clientSecret } = await api.createPaymentIntent(currentOrderId);
-
-    const appearance = { theme: 'night', variables: { colorPrimary: '#d9c4a3' } };
-    stripeElements = stripe.elements({ appearance, clientSecret });
-
-    const paymentElement = stripeElements.create('payment');
-    paymentElement.mount('#payment-element');
-
-    document.getElementById('submitStripePayment').onclick = async () => {
-      const { error, paymentIntent } = await stripe.confirmPayment({
-        elements: stripeElements,
-        confirmParams: {
-          return_url: window.location.href,
-        },
-        redirect: 'if_required'
-      });
-
-      if (error) {
-        showNotification(error.message, 'error');
-      } else {
-        await api.confirmPayment(currentOrderId, 'stripe', paymentIntent?.id);
-        paymentComplete();
-      }
-    };
-  } catch (error) {
-    console.error('Stripe error:', error);
-    showNotification('Failed to initialize Stripe', 'error');
-  }
+  updateGatewayPaymentDetails();
+  setPaymentMessage(`Ready for ${formatPaymentMethodLabel(method, rail)}. Open secure checkout to continue.`);
 }
 
-async function handleUPIPayment() {
-  stripePaymentForm.hidden = true;
-  upiPaymentForm.hidden = false;
+function showUpiHandoff() {
+  ensurePendingPaymentContext();
+  pendingPaymentContext.gatewayMethod = 'upi';
+  pendingPaymentContext.gatewayRail = 'direct';
 
-  submitUPIPaymentBtn.onclick = async () => {
-    const upiId = upiIdInput.value;
-    if (!upiId) {
-      showNotification('Please enter a valid UPI ID', 'warning');
-      return;
-    }
+  if (gatewayPaymentForm) gatewayPaymentForm.hidden = true;
+  if (upiPaymentForm) upiPaymentForm.hidden = false;
 
+  const { merchantName, merchantUpiId } = getPaymentConfig();
+  const upiUrl = buildUpiPaymentUrl(pendingPaymentContext);
+
+  const upiMerchantValue = document.getElementById('upiMerchantValue');
+  const upiAmountValue = document.getElementById('upiAmountValue');
+  const upiReferenceValue = document.getElementById('upiReferenceValue');
+  const openUPIAppButton = document.getElementById('openUPIAppButton');
+  const confirmUPIPaymentButton = document.getElementById('confirmUPIPaymentButton');
+  const copyUPILinkButton = document.getElementById('copyUPILinkButton');
+
+  if (upiMerchantValue) {
+    upiMerchantValue.textContent = merchantUpiId
+      ? `${merchantName} (${merchantUpiId})`
+      : 'UPI ID not configured';
+  }
+
+  if (upiAmountValue) {
+    upiAmountValue.textContent = formatPrice(pendingPaymentContext.amount || 0);
+  }
+
+  if (upiReferenceValue) {
+    upiReferenceValue.textContent = pendingPaymentContext.reference || '-';
+  }
+
+  if (openUPIAppButton) {
+    openUPIAppButton.href = upiUrl || '#';
+    openUPIAppButton.setAttribute('aria-disabled', upiUrl ? 'false' : 'true');
+  }
+
+  if (confirmUPIPaymentButton) {
+    confirmUPIPaymentButton.disabled = !upiUrl;
+  }
+
+  if (copyUPILinkButton) {
+    copyUPILinkButton.disabled = !upiUrl;
+  }
+
+  setPaymentMessage('Direct UPI is ready. Open your app or copy the link to continue.');
+}
+
+async function createGatewayOrder() {
+  const { apiBaseUrl, razorpayOrderEndpoint } = getPaymentConfig();
+  const endpoints = [razorpayOrderEndpoint, apiBaseUrl ? `${apiBaseUrl}/create-order` : ''].filter(Boolean);
+  if (!endpoints.length) {
+    throw new Error('Razorpay order endpoint is not configured.');
+  }
+
+  let lastError = null;
+
+  for (const endpoint of endpoints) {
     try {
-      if (!currentOrderId) {
-        showNotification('Please create an order before payment.', 'warning');
-        return;
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          amount: Math.max(100, Math.round(Number(pendingPaymentContext?.amount || 0) * 100)),
+          currency: 'INR',
+          receipt: pendingPaymentContext?.reference || createPaymentReference('ORDER'),
+          notes: {
+            reference: pendingPaymentContext?.reference,
+            type: pendingPaymentContext?.type,
+            method: formatPaymentMethodLabel(
+              pendingPaymentContext?.gatewayMethod || 'card',
+              pendingPaymentContext?.gatewayRail || 'credit'
+            ),
+          },
+        }),
+      });
+
+      const body = await response.json().catch(() => ({}));
+      if (response.ok && body.success) {
+        return body;
       }
 
-      await api.initiateUPIPayment(currentOrderId, upiId);
-      showNotification('UPI request sent! Please check your UPI app.', 'info');
+      lastError = new Error(body.message || 'Razorpay order could not be created.');
     } catch (error) {
-      showNotification(error.message || 'UPI initiation failed', 'error');
+      lastError = error;
     }
-  };
+  }
+
+  throw lastError || new Error('Razorpay order could not be created.');
+}
+
+async function verifyGatewayPayment(response = {}) {
+  const { apiBaseUrl, razorpayVerifyEndpoint } = getPaymentConfig();
+  const endpoints = [razorpayVerifyEndpoint, apiBaseUrl ? `${apiBaseUrl}/verify-payment` : ''].filter(Boolean);
+  if (!endpoints.length) {
+    throw new Error('Razorpay verification endpoint is not configured.');
+  }
+
+  let lastError = null;
+
+  for (const endpoint of endpoints) {
+    try {
+      const verifyResponse = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          razorpay_order_id: response.razorpay_order_id,
+          razorpay_payment_id: response.razorpay_payment_id,
+          razorpay_signature: response.razorpay_signature,
+        }),
+      });
+
+      const body = await verifyResponse.json().catch(() => ({}));
+      if (verifyResponse.ok && body.success) {
+        return body;
+      }
+
+      lastError = new Error(body.message || 'Razorpay payment verification failed.');
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  throw lastError || new Error('Razorpay payment verification failed.');
+}
+
+async function openGatewayCheckout() {
+  const { merchantName, razorpayKeyId } = getPaymentConfig();
+
+  ensurePendingPaymentContext();
+
+  if (!window.Razorpay) {
+    setPaymentMessage('Secure checkout could not load. Check the network and try again.', 'error');
+    return;
+  }
+
+  try {
+    setPaymentMessage('Creating secure payment order...');
+    const orderResponse = await createGatewayOrder();
+    const order = orderResponse.order || {
+      id: orderResponse.order_id,
+      amount: orderResponse.amount,
+      currency: orderResponse.currency,
+    };
+
+    const customer = getCurrentUser();
+    const checkout = new window.Razorpay({
+      key: orderResponse.keyId || razorpayKeyId,
+      amount: order.amount,
+      currency: order.currency || 'INR',
+      order_id: order.id,
+      name: merchantName,
+      description: pendingPaymentContext.note || 'House of Styles order',
+      prefill: {
+        name: customer?.firstName || customer?.name || '',
+        email: customer?.email || '',
+      },
+      notes: {
+        reference: pendingPaymentContext.reference,
+        type: pendingPaymentContext.type,
+        method: formatPaymentMethodLabel(
+          pendingPaymentContext.gatewayMethod || 'card',
+          pendingPaymentContext.gatewayRail || 'credit'
+        ),
+      },
+      handler: async (response) => {
+        try {
+          setPaymentMessage('Verifying payment...');
+          await verifyGatewayPayment(response);
+          paymentComplete();
+        } catch (error) {
+          setPaymentMessage(error.message || 'Payment verification failed.', 'error');
+        }
+      },
+      modal: {
+        ondismiss() {
+          setPaymentMessage('Secure checkout closed before payment was confirmed.', 'error');
+        },
+      },
+    });
+
+    checkout.on('payment.failed', function (response) {
+      const reason = response?.error?.description || response?.error?.reason || 'Payment failed.';
+      setPaymentMessage(reason, 'error');
+    });
+
+    checkout.open();
+    setPaymentMessage('Secure checkout opened. Complete the payment there.');
+  } catch (error) {
+    setPaymentMessage(error.message || 'Secure checkout could not start.', 'error');
+  }
 }
 
 function paymentComplete() {
@@ -723,7 +912,12 @@ function paymentComplete() {
   saveStorage(STORAGE_KEYS.cart, appState.cart);
   updateCartDisplay();
 
+  if (pendingPaymentContext?.reference) {
+    markLocalOrderPaid(pendingPaymentContext.reference, 'Razorpay');
+  }
+
   paymentModal.hidden = true;
+  pendingPaymentContext = null;
   showNotification('Payment successful! Order confirmed.', 'success');
 
   // Refresh UI
@@ -914,15 +1108,31 @@ async function loadAndRenderOrders() {
     ordersList.innerHTML = orders.map(order => `
       <div class="order-history-card">
         <div class="header">
-          <strong>${order.orderNumber || 'ORD-' + order._id.slice(-6)}</strong>
-          <span class="status status-${order.orderStatus}">${order.orderStatus}</span>
+          <strong>${order.orderNumber || order.paymentReference || 'ORD'}</strong>
+          <span class="status status-${order.orderStatus || 'pending'}">${order.orderStatus || 'pending'}</span>
         </div>
         <p class="small">${new Date(order.createdAt).toLocaleDateString()}</p>
-        <p><strong>${formatPrice(order.totalAmount)}</strong> (${order.items.length} items)</p>
+        <p><strong>${formatPrice(order.totalAmount || order.total || 0)}</strong> (${order.items?.length || 0} items)</p>
       </div>
     `).join('');
   } catch (error) {
-    ordersList.innerHTML = '<p class="error-text">Failed to load orders. Please try again later.</p>';
+    const fallbackOrders = appState.orders || [];
+
+    if (!fallbackOrders.length) {
+      ordersList.innerHTML = '<p class="error-text">Failed to load orders. Please try again later.</p>';
+      return;
+    }
+
+    ordersList.innerHTML = fallbackOrders.map((order) => `
+      <div class="order-history-card">
+        <div class="header">
+          <strong>${order.orderNumber || order.paymentReference || 'ORD'}</strong>
+          <span class="status status-${order.orderStatus || 'pending'}">${order.orderStatus || 'pending'}</span>
+        </div>
+        <p class="small">${new Date(order.createdAt).toLocaleDateString()}</p>
+        <p><strong>${formatPrice(order.totalAmount || order.total || 0)}</strong> (${order.items?.length || 0} items)</p>
+      </div>
+    `).join('');
   }
 }
 
@@ -1240,10 +1450,47 @@ function setupEventListeners() {
   // Payment modal
   closePaymentModalBtn.addEventListener('click', () => {
     paymentModal.hidden = true;
+    pendingPaymentContext = null;
   });
 
-  stripePaymentBtn.addEventListener('click', handleStripePayment);
-  upiPaymentBtn.addEventListener('click', handleUPIPayment);
+  creditCardPaymentBtn?.addEventListener('click', () => showGatewayHandoff('card', 'credit'));
+  debitCardPaymentBtn?.addEventListener('click', () => showGatewayHandoff('card', 'debit'));
+  netbankingPaymentBtn?.addEventListener('click', () => showGatewayHandoff('netbanking'));
+  gatewayUPIPaymentBtn?.addEventListener('click', () => showGatewayHandoff('upi', 'apps'));
+  upiPaymentBtn?.addEventListener('click', showUpiHandoff);
+  openGatewayCheckoutButton?.addEventListener('click', openGatewayCheckout);
+  document.getElementById('openUPIAppButton')?.addEventListener('click', (event) => {
+    const upiUrl = buildUpiPaymentUrl();
+    if (!upiUrl) {
+      event.preventDefault();
+      setPaymentMessage('Merchant UPI ID is not configured yet.', 'error');
+      return;
+    }
+
+    setPaymentMessage('UPI app opened. Complete the payment there, then return and confirm.');
+  });
+  document.getElementById('confirmUPIPaymentButton')?.addEventListener('click', () => {
+    if (!buildUpiPaymentUrl()) {
+      setPaymentMessage('Merchant UPI ID is not configured yet.', 'error');
+      return;
+    }
+
+    paymentComplete();
+  });
+  document.getElementById('copyUPILinkButton')?.addEventListener('click', async () => {
+    const upiUrl = buildUpiPaymentUrl();
+    if (!upiUrl) {
+      setPaymentMessage('Merchant UPI ID is not configured yet.', 'error');
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(upiUrl);
+      setPaymentMessage('UPI payment link copied.');
+    } catch {
+      setPaymentMessage('UPI payment link is ready, but clipboard access was blocked.', 'error');
+    }
+  });
 
   // Auth forms
   customerSignupForm.addEventListener('submit', async (e) => {
@@ -1470,6 +1717,148 @@ function loadStorage(key, fallback) {
 
 function saveStorage(key, value) {
   localStorage.setItem(key, JSON.stringify(value));
+}
+
+function getPaymentConfig() {
+  const config = window.HOS_CONFIG || {};
+  const apiBaseUrl = String(config.apiBaseUrl || '').replace(/\/$/, '');
+
+  return {
+    apiBaseUrl,
+    merchantName: String(config.merchantName || 'House of Styles').trim(),
+    merchantUpiId: String(config.merchantUpiId || config.upiId || 'houseofstyles@upi').trim(),
+    razorpayKeyId: String(config.razorpayKeyId || config.razorpayKey || '').trim(),
+    razorpayOrderEndpoint: String(
+      config.razorpayOrderEndpoint || (apiBaseUrl ? `${apiBaseUrl}/payments/razorpay-order` : '')
+    ).trim(),
+    razorpayVerifyEndpoint: String(
+      config.razorpayVerifyEndpoint || (apiBaseUrl ? `${apiBaseUrl}/payments/razorpay-verify` : '')
+    ).trim(),
+  };
+}
+
+function createPaymentReference(prefix) {
+  return `${prefix}-${Date.now().toString(36).toUpperCase()}`;
+}
+
+function formatPaymentMethodLabel(method, rail = '') {
+  if (method === 'card' && rail === 'debit') return 'Debit Card';
+  if (method === 'card') return 'Credit Card';
+  if (method === 'netbanking') return 'Netbanking';
+  if (method === 'upi') return rail === 'direct' ? 'Direct UPI' : 'UPI Apps';
+  return 'Secure Checkout';
+}
+
+function setPaymentMessage(message, type = 'info') {
+  if (!paymentMessage) return;
+  paymentMessage.textContent = message;
+  paymentMessage.classList.toggle('success', type === 'success');
+  paymentMessage.classList.toggle('error', type === 'error');
+}
+
+function buildUpiPaymentUrl(paymentContext = pendingPaymentContext) {
+  const { merchantName, merchantUpiId } = getPaymentConfig();
+  if (!paymentContext || !merchantUpiId) {
+    return '';
+  }
+
+  const params = new URLSearchParams({
+    pa: merchantUpiId,
+    pn: merchantName,
+    am: Number(paymentContext.amount || 0).toFixed(2),
+    cu: 'INR',
+    tr: paymentContext.reference,
+    tn: paymentContext.note,
+  });
+
+  return `upi://pay?${params.toString()}`;
+}
+
+function updateGatewayPaymentDetails() {
+  if (!pendingPaymentContext) return;
+
+  if (gatewayMethodValue) {
+    gatewayMethodValue.textContent = formatPaymentMethodLabel(
+      pendingPaymentContext.gatewayMethod,
+      pendingPaymentContext.gatewayRail
+    );
+  }
+
+  if (gatewayAmountValue) {
+    gatewayAmountValue.textContent = formatPrice(pendingPaymentContext.amount || 0);
+  }
+
+  if (gatewayReferenceValue) {
+    gatewayReferenceValue.textContent = pendingPaymentContext.reference || '-';
+  }
+}
+
+function ensurePendingPaymentContext() {
+  if (pendingPaymentContext) {
+    return pendingPaymentContext;
+  }
+
+  pendingPaymentContext = {
+    type: 'order',
+    amount: getCartTotal(),
+    reference: createPaymentReference('ORDER'),
+    note: 'House of Styles order',
+    customer: getCurrentUser(),
+    gatewayMethod: 'card',
+    gatewayRail: 'credit',
+  };
+
+  return pendingPaymentContext;
+}
+
+function normalizeCartItem(item) {
+  if (!item || typeof item !== 'object') {
+    return null;
+  }
+
+  const productId = String(item.productId || item.id || item._id || '').trim();
+  const matchedProduct = appState.products.find((product) => String(product._id) === productId);
+  const quantity = Math.max(1, Number(item.quantity || 1));
+  const price = Number(
+    item.price ?? item.finalPrice ?? matchedProduct?.finalPrice ?? matchedProduct?.price ?? 0
+  );
+  const legacyId = [
+    item.productName || item.name || item.title || 'saved-item',
+    item.category || item.productCategory || matchedProduct?.category || '',
+    item.size || matchedProduct?.sizes?.[0] || '',
+  ]
+    .filter(Boolean)
+    .join('-')
+    .replace(/\s+/g, '-')
+    .toLowerCase();
+
+  return {
+    productId: productId || legacyId || 'legacy-item',
+    productName:
+      item.productName ||
+      item.name ||
+      item.title ||
+      matchedProduct?.name ||
+      'Saved item',
+    category:
+      item.category ||
+      item.productCategory ||
+      matchedProduct?.category ||
+      'Selected style',
+    price,
+    quantity,
+    size: item.size || matchedProduct?.sizes?.[0] || 'One Size',
+  };
+}
+
+function normalizeStoredCart() {
+  const normalizedCart = appState.cart.map(normalizeCartItem).filter(Boolean);
+  const changed = JSON.stringify(normalizedCart) !== JSON.stringify(appState.cart);
+
+  appState.cart = normalizedCart;
+  if (changed) {
+    saveStorage(STORAGE_KEYS.cart, appState.cart);
+  }
 }
 
 function showNotification(message, type = 'info') {
