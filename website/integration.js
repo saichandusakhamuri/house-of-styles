@@ -274,6 +274,8 @@ function normalizeProduct(product) {
     audience: product.audience || 'Everyday',
     category: product.category || 'Casual Wear',
     discountPercentage: product.discountPercentage || 0,
+    images: Array.isArray(product.images) ? product.images.filter(Boolean) : [],
+    image: product.image || '',
     palette: product.palette || 'linear-gradient(135deg, #d9c4a3, #8b5a36)',
   };
 }
@@ -432,6 +434,37 @@ function renderProducts() {
 
     // Set product palette
     visual.style.setProperty('--product-background', product.palette || 'linear-gradient(135deg, #d9c4a3, #8b5a36)');
+    const galleryImages = Array.isArray(product.images) ? product.images.slice(0, 5) : [];
+    if (galleryImages.length) {
+      const mainImage = document.createElement('img');
+      mainImage.className = 'product-image';
+      mainImage.src = galleryImages[0];
+      mainImage.alt = product.name;
+      mainImage.loading = 'lazy';
+      mainImage.decoding = 'async';
+      visual.appendChild(mainImage);
+
+      if (galleryImages.length > 1) {
+        const gallery = document.createElement('div');
+        gallery.className = 'product-gallery';
+
+        galleryImages.forEach((imageSrc, index) => {
+          const thumb = document.createElement('button');
+          thumb.type = 'button';
+          thumb.className = `product-thumb${index === 0 ? ' active' : ''}`;
+          thumb.setAttribute('aria-label', `View ${product.name} image ${index + 1}`);
+          thumb.innerHTML = `<img src="${imageSrc}" alt="${product.name} view ${index + 1}" loading="lazy" decoding="async" />`;
+          thumb.addEventListener('click', () => {
+            mainImage.src = imageSrc;
+            gallery.querySelectorAll('.product-thumb').forEach((button) => button.classList.remove('active'));
+            thumb.classList.add('active');
+          });
+          gallery.appendChild(thumb);
+        });
+
+        visual.appendChild(gallery);
+      }
+    }
 
     badge.textContent = product.badge || 'New';
     category.textContent = `${product.category} - ${product.audience}`;

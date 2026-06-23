@@ -152,6 +152,7 @@ const content = {
       price: product.finalPrice || product.basePrice,
       badge: product.badge || 'Featured',
       description: product.description,
+      images: product.images || [],
       palette: product.palette,
     })),
   },
